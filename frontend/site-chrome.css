@@ -1,0 +1,99 @@
+/* Dipakai bersama: panel backend, header, status (import di setiap HTML) */
+
+.tab-active {
+  color: var(--text);
+  border-bottom: 1px solid var(--text);
+}
+.tab-inactive {
+  color: var(--text-muted);
+}
+.tab-inactive:hover {
+  color: var(--text-mid);
+}
+
+.select-field {
+  background: var(--bg);
+  border: 1px solid var(--border-mid);
+  color: var(--text);
+  outline: none;
+}
+.select-field:focus {
+  border-color: var(--text-muted);
+}
+.select-field option {
+  background: var(--surface);
+}
+
+/* Tombol pilihan di panel AirLLM (kompresi) */
+.platform-btn {
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
+  color: var(--text-muted);
+}
+.platform-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-mid);
+}
+.platform-btn.active {
+  border-color: var(--text-mid);
+  color: var(--text);
+}
+
+.divider {
+  border-color: var(--border);
+}
+
+.input-field {
+  background: var(--bg);
+  border: 1px solid var(--border-mid);
+  color: var(--text);
+  outline: none;
+}
+.input-field:focus {
+  border-color: var(--text-muted);
+}
+.input-field::placeholder {
+  color: var(--text-faint);
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  flex-shrink: 0;
+}
+.status-online  { background: #3d9970; }
+.status-offline { background: var(--text-faint, #2a2a2a); }
+.status-warning { background: #b5893d; }
+
+.backend-tab-active {
+  color: var(--text);
+  border-bottom: 1px solid var(--text-muted, #999);
+}
+.backend-tab-inactive { color: var(--text-faint, #2a2a2a); }
+.backend-tab-inactive:hover { color: var(--text-mid, #888); }
+
+.header-model-btn {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mode-toggle {
+  width: 32px; height: 18px;
+  background: var(--border-mid);
+  border-radius: 9px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid var(--border-mid);
+  display: flex; align-items: center; padding: 0 2px;
+  flex-shrink: 0;
+}
+.mode-toggle-thumb {
+  width: 12px; height: 12px;
+  background: var(--text-mid);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+html.light .mode-toggle-thumb { transform: translateX(14px); }
+
+.modern-bg { background: var(--modal-bg, rgba(0,0,0,0.85)); }

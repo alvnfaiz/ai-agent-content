@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/site-chrome.css" />
+  <script src="/static/site-header.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
@@ -63,10 +65,6 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .tab-active   { color: var(--text); border-bottom: 1px solid var(--text); }
-    .tab-inactive { color: var(--text-muted); }
-    .tab-inactive:hover { color: var(--text-mid); }
-
     .btn-primary { background: var(--text); color: var(--bg); font-weight: 500; }
     .btn-primary:hover { opacity: 0.88; }
     .btn-primary:disabled { background: var(--border-mid); color: var(--text-muted); cursor: not-allowed; opacity: 1; }
@@ -77,19 +75,7 @@
     .btn-ghost { color: var(--text-muted); }
     .btn-ghost:hover { color: var(--text); }
 
-    .input-field  { background: var(--bg); border: 1px solid var(--border-mid); color: var(--text); outline: none; }
-    .input-field:focus { border-color: var(--text-muted); }
-    .input-field::placeholder { color: var(--text-faint); }
-
-    .select-field { background: var(--bg); border: 1px solid var(--border-mid); color: var(--text); outline: none; }
-    .select-field:focus { border-color: var(--text-muted); }
-    .select-field option { background: var(--surface); }
-
     .tag { background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--tag-text); font-size: 0.7rem; padding: 2px 8px; border-radius: 3px; }
-
-    .platform-btn { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text-muted); }
-    .platform-btn:hover { border-color: var(--text-muted); color: var(--text-mid); }
-    .platform-btn.active { border-color: var(--text-mid); color: var(--text); }
 
     .output-btn { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text-muted); }
     .output-btn:hover { border-color: var(--text-muted); color: var(--text-mid); }
@@ -116,14 +102,7 @@
     .modal-bg { background: var(--modal-bg); }
     .floating-banner { background: var(--float-bg); border: 1px solid var(--border-mid); }
 
-    .status-dot   { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-    .status-online  { background: #3d9970; }
-    .status-offline { background: var(--text-faint); }
     .status-warning { background: #b5893d; }
-
-    .backend-tab-active   { color: var(--text); border-bottom: 1px solid var(--text-muted); }
-    .backend-tab-inactive { color: var(--text-faint); }
-    .backend-tab-inactive:hover { color: var(--text-mid); }
 
     .news-row { background: var(--bg); }
     .news-row:hover { background: var(--bg-subtle); }
@@ -136,79 +115,67 @@
     .kw-chip-active { background: var(--text); color: var(--bg); border: 1px solid var(--text); cursor: pointer; font-weight: 500; }
     .kw-chip-active:hover { opacity: 0.85; }
 
-    .divider { border-color: var(--border); }
-
-    /* Mode toggle button */
-    .mode-toggle {
-      width: 32px; height: 18px;
-      background: var(--border-mid);
-      border-radius: 9px;
-      position: relative;
-      cursor: pointer;
-      transition: background 0.2s;
-      border: 1px solid var(--border-mid);
-      display: flex; align-items: center; padding: 0 2px;
-    }
-    .mode-toggle-thumb {
-      width: 12px; height: 12px;
-      background: var(--text-mid);
-      border-radius: 50%;
-      transition: transform 0.2s, background 0.2s;
-    }
-    html.light .mode-toggle-thumb { transform: translateX(14px); }
   </style>
 </head>
 <body class="min-h-screen">
 
-<!-- HEADER -->
+<!-- HEADER (seragam: model + tema + nav) -->
 <header class="site-header px-6 py-4 sticky top-0 z-40">
-  <div class="max-w-6xl mx-auto flex items-center justify-between gap-6">
-
-    <div class="flex items-center gap-3">
-      <div class="flex items-center justify-center" style="width:28px;height:28px;border:1px solid var(--border-mid);border-radius:4px;">
-        <svg width="14" height="14" fill="none" stroke="var(--text-mid)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1 1 .3 2.7-1.1 2.7H3.9c-1.4 0-2.1-1.7-1.1-2.7L4.2 15.3M5 14.5l-.8.8"/></svg>
-      </div>
-      <span class="text-sm font-medium" style="color:var(--text);">AI Content Agent</span>
+  <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/" class="flex items-center gap-2.5 shrink-0" title="Beranda">
+        <div class="flex items-center justify-center" style="width:28px;height:28px;border:1px solid var(--border-mid);border-radius:4px;">
+          <svg width="14" height="14" fill="none" stroke="var(--text-mid)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1 1 .3 2.7-1.1 2.7H3.9c-1.4 0-2.1-1.7-1.1-2.7L4.2 15.3M5 14.5l-.8.8"/></svg>
+        </div>
+        <span class="text-sm font-medium" style="color:var(--text);">AI Content Agent</span>
+      </a>
     </div>
 
-    <!-- DB Stats -->
-    <div class="hidden md:flex items-center gap-5 text-xs" style="color:var(--text-muted);">
+    <div class="hidden md:flex items-center gap-4 text-xs shrink-0" style="color:var(--text-muted);">
       <span><span x-text="dbStats.news_total || 0" style="color:var(--text-mid);"></span> berita</span>
       <span style="color:var(--border-mid);">|</span>
-      <span><span x-text="dbStats.gen_total || 0" style="color:var(--text-mid);"></span> konten dibuat</span>
+      <span><span x-text="dbStats.gen_total || 0" style="color:var(--text-mid);"></span> konten</span>
     </div>
 
-    <div class="flex items-center gap-5">
-      <!-- Backend status -->
-      <button @click="showBackendPanel=!showBackendPanel; loadBackendStatus()"
-        class="hidden sm:flex items-center gap-2 text-xs btn-ghost transition-colors">
-        <span class="status-dot" :class="backendStatus?.active === 'airllm' ? (backendStatus?.airllm?.model_loaded ? 'status-online' : 'status-warning') : (ollamaStatus.connected ? 'status-online' : 'status-offline')"></span>
-        <span style="color:var(--text-muted);" x-text="backendStatus?.active === 'airllm' ? 'AirLLM' : 'Ollama'"></span>
+    <div class="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto justify-end">
+      <button type="button" @click="showBackendPanel=!showBackendPanel; loadBackendStatus()"
+        class="flex items-center gap-2 text-xs btn-ghost transition-colors min-w-0 max-w-[min(100%,240px)]"
+        title="Pilih model (Ollama / AirLLM)">
+        <span class="status-dot shrink-0" :class="backendStatus?.active === 'airllm' ? (backendStatus?.airllm?.model_loaded ? 'status-online' : 'status-warning') : (ollamaStatus.connected ? 'status-online' : 'status-offline')"></span>
+        <span class="header-model-btn" style="color:var(--text-muted);text-align:left;" x-text="headerModelSummary"></span>
       </button>
 
-      <!-- Dark/Light toggle -->
-      <button @click="toggleMode()" class="mode-toggle" :title="darkMode ? 'Switch ke light mode' : 'Switch ke dark mode'">
+      <button type="button" @click="toggleMode()" class="mode-toggle" :title="darkMode ? 'Light mode' : 'Dark mode'">
         <span class="mode-toggle-thumb"></span>
       </button>
 
-      <!-- Tab nav -->
-      <nav class="flex items-center gap-5">
-        <button @click="!isBusy && (activeTab='news')"
-          :disabled="isBusy"
-          :class="activeTab==='news' ? 'tab-active' : 'tab-inactive'"
-          class="text-sm pb-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Berita</button>
-        <button @click="!isBusy && (activeTab='generate')"
-          :disabled="isBusy"
-          :class="activeTab==='generate' ? 'tab-active' : 'tab-inactive'"
-          class="text-sm pb-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Generate</button>
-        <button @click="!isBusy && (activeTab='history', loadHistory())"
-          :disabled="isBusy"
-          :class="activeTab==='history' ? 'tab-active' : 'tab-inactive'"
-          class="text-sm pb-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-          Riwayat
-          <span x-show="dbStats.gen_total > 0" x-text="dbStats.gen_total"
-            style="font-size:0.65rem;color:var(--text-muted);margin-left:4px;"></span>
-        </button>
+      <nav class="flex items-center gap-2 sm:gap-3 flex-wrap text-xs sm:text-sm">
+        <a href="/niche.html" class="tab-inactive pb-0.5 sm:pb-1">Niche</a>
+        <a href="/creator.html" class="tab-inactive pb-0.5 sm:pb-1">Creator</a>
+        <a href="/agency.html" class="tab-inactive pb-0.5 sm:pb-1">Agency</a>
+        <a href="/content" class="tab-inactive pb-0.5 sm:pb-1" title="Ide konten">/content</a>
+        <span class="text-[10px] sm:text-xs" style="color:var(--border-mid);">|</span>
+        <template x-if="isIndexPage">
+          <span class="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <button type="button" @click="!isBusy && (activeTab='news')"
+              :disabled="isBusy"
+              :class="activeTab==='news' ? 'tab-active' : 'tab-inactive'"
+              class="pb-0.5 sm:pb-1 disabled:opacity-40 disabled:cursor-not-allowed">Berita</button>
+            <button type="button" @click="!isBusy && (activeTab='generate')"
+              :disabled="isBusy"
+              :class="activeTab==='generate' ? 'tab-active' : 'tab-inactive'"
+              class="pb-0.5 sm:pb-1 disabled:opacity-40 disabled:cursor-not-allowed">Generate</button>
+            <button type="button" @click="!isBusy && (activeTab='history', loadHistory())"
+              :disabled="isBusy"
+              :class="activeTab==='history' ? 'tab-active' : 'tab-inactive'"
+              class="pb-0.5 sm:pb-1 disabled:opacity-40 disabled:cursor-not-allowed">
+              Riwayat
+              <span x-show="dbStats.gen_total > 0" x-text="dbStats.gen_total"
+                style="font-size:0.65rem;color:var(--text-muted);margin-left:4px;"></span>
+            </button>
+          </span>
+        </template>
+        <a href="/" x-show="!isIndexPage" class="tab-inactive pb-0.5 sm:pb-1" x-cloak>Utama</a>
       </nav>
     </div>
   </div>
@@ -898,7 +865,8 @@
 <script>
 function app() {
   return {
-    darkMode: localStorage.getItem('theme') !== 'light',
+    ...siteHeaderMixin(),
+    isIndexPage: true,
     activeTab: 'news',
 
 
@@ -953,20 +921,6 @@ function app() {
     historyPlatform: '',
     historyModal: null,
     copiedHistoryId: null,
-
-    ollamaStatus: { connected: false },
-    dbStats: { news_total: 0, news_today: 0, gen_total: 0, gen_today: 0 },
-
-    backendStatus: null,
-    showBackendPanel: false,
-    selectedBackendType: 'ollama',
-    ollamaModelInput: 'gemma4:31b-cloud',
-    airllmPreset: 'llama3-8b',
-    airllmCompression: '4bit',
-    airllmToken: '',
-    airllmPresets: {},
-    switchingBackend: false,
-    backendSwitchMsg: '',
 
     platforms: [
       { id: 'tiktok',          label: 'TikTok' },
@@ -1033,12 +987,8 @@ function app() {
       }
     },
 
-    toggleMode() {
-      this.darkMode = !this.darkMode;
-      localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
-    },
-
     async init() {
+      document.documentElement.className = this.darkMode ? 'dark' : 'light';
       await this.checkStatus();
       this.loadNews(false);
       // Cegah tutup/reload halaman saat AI sedang berjalan
@@ -1048,97 +998,6 @@ function app() {
           e.returnValue = '';
         }
       });
-    },
-
-    async checkStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        this.ollamaStatus = data.ollama || { connected: false };
-        this.cacheAge = data.cache_age_minutes;
-        if (data.db) {
-          this.dbStats = {
-            news_total: data.db.news?.total || 0,
-            news_today: data.db.news?.last_24h || 0,
-            gen_total: data.db.generated?.total || 0,
-            gen_today: data.db.generated?.last_24h || 0,
-          };
-        }
-        if (data.backend) {
-          this.backendStatus = data.backend;
-          this.selectedBackendType = data.backend.active || 'ollama';
-          this.airllmPresets = data.backend.presets || {};
-        }
-      } catch (e) {
-        this.ollamaStatus = { connected: false };
-      }
-    },
-
-    async loadBackendStatus() {
-      try {
-        const res = await fetch('/api/backend');
-        const data = await res.json();
-        this.backendStatus = data;
-        this.selectedBackendType = data.active || 'ollama';
-        this.airllmPresets = data.presets || {};
-      } catch (e) {}
-    },
-
-    async switchToOllama() {
-      this.switchingBackend = true;
-      this.backendSwitchMsg = '';
-      try {
-        const res = await fetch('/api/backend/ollama', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: this.ollamaModelInput }),
-        });
-        const data = await res.json();
-        this.backendSwitchMsg = data.success ? `✓ Beralih ke Ollama (${data.model})` : 'Gagal beralih';
-        await this.checkStatus();
-      } catch (e) {
-        this.backendSwitchMsg = 'Error: ' + e.message;
-      } finally {
-        this.switchingBackend = false;
-      }
-    },
-
-    async switchToAirLLM() {
-      this.switchingBackend = true;
-      this.backendSwitchMsg = '';
-      try {
-        const res = await fetch('/api/backend/airllm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ preset: this.airllmPreset, compression: this.airllmCompression, hf_token: this.airllmToken }),
-        });
-        const data = await res.json();
-        this.backendSwitchMsg = data.success
-          ? `✓ AirLLM aktif. Model dimuat saat generate pertama.`
-          : 'Gagal beralih ke AirLLM';
-        await this.checkStatus();
-      } catch (e) {
-        this.backendSwitchMsg = 'Error: ' + e.message;
-      } finally {
-        this.switchingBackend = false;
-      }
-    },
-
-    async preloadAirLLM() {
-      this.switchingBackend = true;
-      this.backendSwitchMsg = 'Memuat model...';
-      try {
-        const res = await fetch('/api/backend/airllm/preload', { method: 'POST' });
-        const data = await res.json();
-        this.backendSwitchMsg = data.success && data.model_loaded
-          ? '✓ Model siap digunakan'
-          : `Gagal: ${data.error || 'Unknown error'}`;
-        await this.checkStatus();
-      } catch (e) {
-        this.backendSwitchMsg = 'Error: ' + e.message;
-      } finally {
-        this.switchingBackend = false;
-      }
     },
 
     async loadNews(forceRefresh = false) {

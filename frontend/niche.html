@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="id" x-data="app()" x-init="init()" :class="darkMode ? 'dark' : 'light'">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analisa Niche — AI Content Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/site-chrome.css" />
+  <script src="/static/site-header.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, body { font-family: 'Inter', sans-serif; }
+    [x-cloak] { display: none !important; }
+
+    :root {
+      --bg:          #0c0c0c;
+      --bg-subtle:   #111111;
+      --surface:     #141414;
+      --border:      #1e1e1e;
+      --border-mid:  #2a2a2a;
+      --text:        #e4e4e4;
+      --text-mid:    #888;
+      --text-muted:  #444;
+      --text-faint:  #2a2a2a;
+      --tag-bg:      #1a1a1a;
+      --tag-border:  #252525;
+      --tag-text:    #666;
+      --skel:        #1a1a1a;
+      --nav-bg:      #0c0c0c;
+      --scrollbar:   #2a2a2a;
+      --modal-bg:    rgba(0,0,0,0.85);
+    }
+    html.light {
+      --bg:          #f5f5f5;
+      --bg-subtle:   #efefef;
+      --surface:     #ffffff;
+      --border:      #e5e5e5;
+      --border-mid:  #d4d4d4;
+      --text:        #111111;
+      --text-mid:    #555;
+      --text-muted:  #999;
+      --text-faint:  #ccc;
+      --tag-bg:      #f0f0f0;
+      --tag-border:  #e0e0e0;
+      --tag-text:    #777;
+      --skel:        #ebebeb;
+      --nav-bg:      #ffffff;
+      --scrollbar:   #d4d4d4;
+      --modal-bg:    rgba(0,0,0,0.5);
+    }
+
+    body { background: var(--bg); color: var(--text); }
+    .card { background: var(--surface); border: 1px solid var(--border); }
+    .site-header { background: var(--nav-bg); border-bottom: 1px solid var(--border); }
+
+    .tab-active   { color: var(--text); border-bottom: 1px solid var(--text); }
+    .tab-inactive { color: var(--text-muted); }
+    .tab-inactive:hover { color: var(--text-mid); }
+
+    .btn-primary { background: var(--text); color: var(--bg); font-weight: 500; }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:disabled { background: var(--border-mid); color: var(--text-muted); cursor: not-allowed; opacity: 1; }
+
+    .btn-secondary { background: transparent; border: 1px solid var(--border-mid); color: var(--text-mid); }
+    .btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .btn-ghost { color: var(--text-muted); }
+    .btn-ghost:hover { color: var(--text); }
+
+    .tag { background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--tag-text); font-size: 0.7rem; padding: 2px 8px; border-radius: 3px; }
+
+    /* Option chips for Q&A */
+    .opt-chip { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text-muted); cursor: pointer; transition: all .15s; }
+    .opt-chip:hover { border-color: var(--text-muted); color: var(--text-mid); }
+    .opt-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+
+    /* Progress bar */
+    .progress-track { background: var(--border); height: 2px; border-radius: 1px; }
+    .progress-fill  { background: var(--text); height: 2px; border-radius: 1px; transition: width .3s; }
+
+    /* Prose result */
+    .prose-content { color: var(--text-mid); line-height: 1.9; font-size: 0.875rem; }
+    .prose-content h2 { color: var(--text); font-size: 0.75rem; font-weight: 600; margin: 1.8rem 0 0.5rem; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+    .prose-content h3 { color: var(--text); font-size: 0.9rem; font-weight: 600; margin: 1.4rem 0 0.4rem; }
+    .prose-content ul { list-style: none; padding: 0; margin: 0.4rem 0; }
+    .prose-content li { padding: 0.2rem 0 0.2rem 1rem; position: relative; }
+    .prose-content li::before { content: '—'; position: absolute; left: 0; color: var(--text-faint); }
+    .prose-content strong { color: var(--text); font-weight: 500; }
+    .prose-content p { margin: 0.4rem 0; }
+    .prose-content hr { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+    .prose-content code { background: var(--tag-bg); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.8rem; }
+    .prose-content ol { list-style: decimal; padding-left: 1.2rem; margin: 0.4rem 0; }
+    .prose-content ol li::before { display: none; }
+    .prose-content ol li { padding-left: 0.2rem; }
+
+    .spinner { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+    .skeleton { background: var(--skel); border-radius: 3px; }
+
+    .news-row { background: var(--bg); border-bottom: 1px solid var(--border); }
+    .news-row:hover { background: var(--bg-subtle); }
+    .news-row.selected { background: var(--bg-subtle); }
+
+    /* Niche card score bar */
+    .score-bar { background: var(--border); height: 3px; border-radius: 2px; }
+    .score-fill { background: var(--text-mid); height: 3px; border-radius: 2px; }
+
+    /* Category filter tabs */
+    .cat-chip { background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--tag-text); cursor: pointer; }
+    .cat-chip:hover { border-color: var(--text-muted); color: var(--text-mid); }
+    .cat-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+
+    .modal-bg { background: var(--modal-bg); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="site-header px-6 sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto flex flex-col">
+    <div class="py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/" class="flex items-center gap-2.5 shrink-0" title="Beranda">
+          <div class="flex items-center justify-center" style="width:28px;height:28px;border:1px solid var(--border-mid);border-radius:4px;">
+            <svg width="14" height="14" fill="none" stroke="var(--text-mid)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1 1 .3 2.7-1.1 2.7H3.9c-1.4 0-2.1-1.7-1.1-2.7L4.2 15.3M5 14.5l-.8.8"/></svg>
+          </div>
+          <span class="text-sm font-medium" style="color:var(--text);">AI Content Agent</span>
+        </a>
+        <span class="text-xs font-medium" style="color:var(--text-muted);">· Analisa Niche</span>
+      </div>
+      <div class="hidden md:flex items-center gap-4 text-xs shrink-0" style="color:var(--text-muted);">
+        <span><span x-text="dbStats.news_total || 0" style="color:var(--text-mid);"></span> berita</span>
+        <span style="color:var(--border-mid);">|</span>
+        <span><span x-text="dbStats.gen_total || 0" style="color:var(--text-mid);"></span> konten</span>
+      </div>
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto justify-end">
+        <button type="button" @click="showBackendPanel=!showBackendPanel; loadBackendStatus()"
+          class="flex items-center gap-2 text-xs btn-ghost transition-colors min-w-0 max-w-[min(100%,240px)]"
+          title="Pilih model (Ollama / AirLLM)">
+          <span class="status-dot shrink-0" :class="backendStatus?.active === 'airllm' ? (backendStatus?.airllm?.model_loaded ? 'status-online' : 'status-warning') : (ollamaStatus.connected ? 'status-online' : 'status-offline')"></span>
+          <span class="header-model-btn" style="color:var(--text-muted);text-align:left;" x-text="headerModelSummary"></span>
+        </button>
+        <button type="button" @click="toggleMode()" class="mode-toggle" :title="darkMode ? 'Light mode' : 'Dark mode'">
+          <span class="mode-toggle-thumb"></span>
+        </button>
+        <nav class="flex items-center gap-2 sm:gap-3 flex-wrap text-xs sm:text-sm">
+          <a href="/niche.html" class="tab-active pb-0.5 sm:pb-1">Niche</a>
+          <a href="/creator.html" class="tab-inactive pb-0.5 sm:pb-1">Creator</a>
+          <a href="/agency.html" class="tab-inactive pb-0.5 sm:pb-1">Agency</a>
+          <a href="/content" class="tab-inactive pb-0.5 sm:pb-1" title="Ide konten">/content</a>
+          <span class="text-[10px] sm:text-xs" style="color:var(--border-mid);">|</span>
+          <a href="/" class="tab-inactive pb-0.5 sm:pb-1">Utama</a>
+        </nav>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 sm:gap-6 flex-wrap border-t py-3" style="border-color:var(--border);">
+      <nav class="flex items-center gap-4 sm:gap-6 flex-wrap">
+        <button type="button" @click="activeTab='qa'"
+          :class="activeTab==='qa' ? 'tab-active' : 'tab-inactive'"
+          class="text-sm pb-1 transition-colors">Temukan Niche</button>
+        <button type="button" @click="switchToTrending()"
+          :class="activeTab==='trending' ? 'tab-active' : 'tab-inactive'"
+          class="text-sm pb-1 transition-colors">Tren Saat Ini</button>
+        <button type="button" @click="switchToSaved()"
+          :class="activeTab==='saved' ? 'tab-active' : 'tab-inactive'"
+          class="text-sm pb-1 transition-colors flex items-center gap-1.5">
+          Niche tersimpan
+          <span x-show="savedTotal > 0" class="text-xs rounded-full px-1.5 py-0.5 font-medium"
+            style="font-size:0.6rem;background:var(--text);color:var(--bg);"
+            x-text="savedTotal"></span>
+        </button>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- BACKEND PANEL -->
+<div x-show="showBackendPanel" x-cloak @click.outside="showBackendPanel=false"
+     class="fixed top-14 right-6 z-50" style="width:420px;max-width:95vw;">
+  <div class="card rounded-lg shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 divider" style="border-bottom:1px solid var(--border);">
+      <div>
+        <p class="text-sm font-medium" style="color:var(--text);">Backend</p>
+        <p class="text-xs mt-0.5" style="color:var(--text-muted);">Model yang digunakan untuk generate</p>
+      </div>
+      <button type="button" @click="showBackendPanel=false" class="btn-ghost text-lg leading-none transition-colors">×</button>
+    </div>
+    <div class="flex" style="border-bottom:1px solid var(--border);">
+      <button type="button" @click="selectedBackendType='ollama'"
+        :class="selectedBackendType==='ollama' ? 'backend-tab-active' : 'backend-tab-inactive'"
+        class="flex-1 py-3 text-xs font-medium transition-colors text-center">
+        Ollama
+        <span x-show="backendStatus?.active==='ollama'" style="color:#3d9970;margin-left:4px;">aktif</span>
+      </button>
+      <button type="button" @click="selectedBackendType='airllm'"
+        :class="selectedBackendType==='airllm' ? 'backend-tab-active' : 'backend-tab-inactive'"
+        class="flex-1 py-3 text-xs font-medium transition-colors text-center">
+        AirLLM
+        <span x-show="backendStatus?.active==='airllm'" style="color:#3d9970;margin-left:4px;">aktif</span>
+      </button>
+    </div>
+    <div class="p-5 flex flex-col gap-4">
+      <div x-show="selectedBackendType==='ollama'" class="flex flex-col gap-4">
+        <p class="text-xs leading-relaxed" style="color:var(--text-muted);">
+          Jalankan model lokal via Ollama. Cepat, cocok untuk pemakaian harian.<br>
+          Butuh <code>ollama serve</code> berjalan di background.
+        </p>
+        <div>
+          <label class="text-xs block mb-1.5" style="color:var(--text-muted);">Model</label>
+          <input x-model="ollamaModelInput" type="text" placeholder="gemma4:latest"
+            class="input-field w-full rounded px-3 py-2 text-sm" />
+          <p class="text-xs mt-1.5" style="color:var(--text-faint);">
+            Tersedia: <span x-text="backendStatus?.ollama?.models?.join(', ') || '—'"></span>
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button type="button" @click="switchToOllama()" :disabled="switchingBackend"
+            class="btn-primary flex-1 py-2 rounded text-sm transition-all">
+            <span x-show="!switchingBackend">Gunakan Ollama</span>
+            <span x-show="switchingBackend">Memproses...</span>
+          </button>
+          <span class="text-xs" :style="backendStatus?.ollama?.connected ? 'color:#3d9970' : 'color:var(--text-muted)'">
+            <span x-text="backendStatus?.ollama?.connected ? 'terhubung' : 'tidak aktif'"></span>
+          </span>
+        </div>
+      </div>
+      <div x-show="selectedBackendType==='airllm'" class="flex flex-col gap-4">
+        <p class="text-xs leading-relaxed" style="color:var(--text-muted);">
+          Jalankan model 70B di GPU 4GB menggunakan AirLLM.<br>
+          Lebih lambat (1–5 menit) tapi kualitas jauh lebih tinggi.
+        </p>
+        <div x-show="!backendStatus?.airllm?.airllm_installed"
+          class="text-xs p-3 rounded" style="background:var(--tag-bg);border:1px solid var(--border-mid);color:var(--text-muted);">
+          AirLLM belum terinstall.<br>
+          <code>pip install airllm transformers torch bitsandbytes</code>
+        </div>
+        <div x-show="backendStatus?.airllm?.cuda_available" class="text-xs" style="color:var(--text-muted);">
+          GPU: <span x-text="backendStatus?.airllm?.gpu_name"></span>
+          — <span x-text="backendStatus?.airllm?.vram_gb + ' GB VRAM'"></span>
+        </div>
+        <div x-show="backendStatus?.airllm && !backendStatus?.airllm?.cuda_available" class="text-xs" style="color:var(--text-muted);">
+          CUDA tidak terdeteksi — akan berjalan di CPU (sangat lambat)
+        </div>
+        <div>
+          <label class="text-xs block mb-1.5" style="color:var(--text-muted);">Model</label>
+          <select x-model="airllmPreset" class="select-field w-full rounded px-3 py-2 text-sm">
+            <template x-for="(info, key) in airllmPresets" :key="key">
+              <option :value="key" x-text="key + ' — ' + info.description"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs block mb-1.5" style="color:var(--text-muted);">Compression</label>
+          <div class="flex gap-2">
+            <template x-for="c in ['4bit','8bit','none']" :key="c">
+              <button type="button" @click="airllmCompression = c === 'none' ? '' : c"
+                :class="(airllmCompression || 'none') === c ? 'platform-btn active' : 'platform-btn'"
+                class="flex-1 py-1.5 rounded text-xs transition-all"
+                x-text="c === 'none' ? 'Tanpa' : c"></button>
+            </template>
+          </div>
+          <p class="text-xs mt-1.5" style="color:var(--text-faint);">4bit direkomendasikan untuk GPU 4GB — 3x lebih cepat, akurasi hampir sama.</p>
+        </div>
+        <div>
+          <label class="text-xs block mb-1.5" style="color:var(--text-muted);">
+            HuggingFace Token
+            <span style="color:var(--text-faint);">(opsional, untuk model gated)</span>
+          </label>
+          <input x-model="airllmToken" type="password" placeholder="hf_..."
+            class="input-field w-full rounded px-3 py-2 text-sm" />
+        </div>
+        <div class="flex gap-2">
+          <button type="button" @click="switchToAirLLM()" :disabled="switchingBackend || !backendStatus?.airllm?.airllm_installed"
+            class="btn-primary flex-1 py-2 rounded text-sm transition-all">
+            <span x-show="!switchingBackend">Gunakan AirLLM</span>
+            <span x-show="switchingBackend">Memproses...</span>
+          </button>
+          <button type="button" @click="preloadAirLLM()" :disabled="switchingBackend || backendStatus?.active !== 'airllm'"
+            class="btn-secondary py-2 px-4 rounded text-xs transition-colors disabled:opacity-30">
+            Preload
+          </button>
+        </div>
+        <div x-show="backendStatus?.active === 'airllm'" class="text-xs" style="color:var(--text-muted);">
+          <span x-show="backendStatus?.airllm?.model_loaded" style="color:#3d9970;">Model siap digunakan</span>
+          <span x-show="backendStatus?.airllm?.loading" style="color:#b5893d;">Memuat model...</span>
+          <span x-show="!backendStatus?.airllm?.model_loaded && !backendStatus?.airllm?.loading">Model dimuat saat generate pertama</span>
+        </div>
+      </div>
+      <div x-show="backendSwitchMsg" x-text="backendSwitchMsg" class="text-xs p-2 rounded"
+        :style="backendSwitchMsg.startsWith('✓') ? 'color:#3d9970;background:var(--tag-bg);border:1px solid var(--border);' : 'color:var(--text-muted);background:var(--tag-bg);border:1px solid var(--border);'">
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-5xl mx-auto px-6 py-8">
+
+  <!-- ===== TAB Q&A ===== -->
+  <div x-show="activeTab==='qa'" x-cloak>
+
+    <!-- State: wizard -->
+    <div x-show="!qaResult && !qaAnalyzing">
+
+      <!-- Intro (step 0) -->
+      <div x-show="currentStep === 0" class="max-w-xl mx-auto text-center py-12">
+        <p class="text-xs uppercase tracking-widest mb-4" style="color:var(--text-faint);">Niche Finder</p>
+        <h1 class="text-2xl font-light mb-3" style="color:var(--text);">Temukan niche yang tepat untukmu</h1>
+        <p class="text-sm leading-relaxed mb-8" style="color:var(--text-muted);">
+          Jawab 6 pertanyaan singkat. AI akan menganalisis profilmu dan merekomendasikan
+          niche konten yang paling cocok dengan minat, keahlian, dan tujuanmu.
+        </p>
+        <button @click="currentStep = 1" class="btn-primary px-8 py-3 rounded text-sm transition-all">
+          Mulai Sekarang
+        </button>
+      </div>
+
+      <!-- Questions -->
+      <div x-show="currentStep >= 1" class="max-w-2xl mx-auto">
+
+        <!-- Progress -->
+        <div class="mb-8">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs" style="color:var(--text-muted);">
+              Langkah <span x-text="currentStep"></span> dari <span x-text="questions.length"></span>
+            </span>
+            <span class="text-xs" style="color:var(--text-faint);"
+              x-text="Math.round((currentStep / questions.length) * 100) + '%'"></span>
+          </div>
+          <div class="progress-track w-full">
+            <div class="progress-fill" :style="'width:' + (currentStep / questions.length * 100) + '%'"></div>
+          </div>
+        </div>
+
+        <!-- Question card -->
+        <template x-if="currentQuestion">
+          <div class="card rounded-lg p-7">
+            <p class="text-xs uppercase tracking-widest mb-2" style="color:var(--text-faint);"
+               x-text="'Pertanyaan ' + currentStep"></p>
+            <h2 class="text-lg font-medium mb-1.5 leading-snug" style="color:var(--text);"
+                x-text="currentQuestion.title"></h2>
+            <p class="text-xs mb-6" style="color:var(--text-muted);" x-text="currentQuestion.subtitle"></p>
+
+            <!-- Chips options -->
+            <div class="flex flex-wrap gap-2">
+              <template x-for="opt in currentQuestion.options" :key="opt">
+                <button
+                  @click="toggleAnswer(opt)"
+                  :class="isSelected(opt) ? 'opt-chip active' : 'opt-chip'"
+                  class="rounded px-3 py-1.5 text-xs transition-all"
+                  x-text="opt">
+                </button>
+              </template>
+            </div>
+
+            <!-- Hint for single select -->
+            <p x-show="currentQuestion.type === 'single'" class="text-xs mt-4" style="color:var(--text-faint);">
+              Pilih satu jawaban
+            </p>
+          </div>
+        </template>
+
+        <!-- Navigation -->
+        <div class="flex items-center justify-between mt-5">
+          <button @click="prevStep()" x-show="currentStep > 1"
+            class="btn-ghost text-xs flex items-center gap-1.5 transition-colors">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Sebelumnya
+          </button>
+          <span x-show="currentStep === 1"></span>
+
+          <div class="flex items-center gap-3">
+            <span class="text-xs" style="color:var(--text-faint);"
+              x-show="!currentAnswerValid()">Pilih minimal satu</span>
+            <button x-show="currentStep < questions.length"
+              @click="nextStep()"
+              :disabled="!currentAnswerValid()"
+              class="btn-primary rounded px-5 py-2 text-sm transition-all flex items-center gap-1.5">
+              Selanjutnya
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <button x-show="currentStep === questions.length"
+              @click="submitQA()"
+              :disabled="!currentAnswerValid()"
+              class="btn-primary rounded px-6 py-2 text-sm transition-all">
+              Analisis Niche
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- State: analyzing -->
+    <div x-show="qaAnalyzing && !qaResult" class="max-w-2xl mx-auto">
+      <div class="card rounded-lg p-8 text-center">
+        <svg class="spinner w-6 h-6 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          style="color:var(--text-muted);">
+          <circle cx="12" cy="12" r="10" stroke-width="1.5" stroke-dasharray="30 70"/>
+        </svg>
+        <p class="text-sm" style="color:var(--text);">AI sedang menganalisis profilmu...</p>
+        <p class="text-xs mt-2" style="color:var(--text-muted);">Ini memerlukan beberapa saat</p>
+      </div>
+      <!-- Streaming preview -->
+      <div x-show="qaStreamBuffer" class="card rounded-lg mt-4 p-5">
+        <div class="prose-content" x-html="marked.parse(qaStreamBuffer)"></div>
+      </div>
+    </div>
+
+    <!-- State: result -->
+    <div x-show="qaResult" x-cloak class="max-w-3xl mx-auto">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <p class="text-xs uppercase tracking-widest" style="color:var(--text-faint);">Hasil Analisis</p>
+          <p class="text-sm mt-1" style="color:var(--text-muted);">
+            Berdasarkan <span x-text="Object.keys(answers).length"></span> jawaban yang kamu berikan
+          </p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button @click="copyResult(qaResult)"
+            class="btn-secondary rounded px-3 py-1.5 text-xs transition-colors">
+            <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+          </button>
+          <a href="/creator.html" @click.prevent="goToCreator('qa', qaResult)"
+            class="btn-primary rounded px-3 py-1.5 text-xs transition-all inline-block">
+            Buat agen konten
+          </a>
+          <button @click="resetQA()"
+            class="btn-ghost text-xs transition-colors">Mulai ulang</button>
+        </div>
+      </div>
+
+      <div class="card rounded-lg p-6">
+        <div class="prose-content" x-html="marked.parse(qaResult)"></div>
+        <div class="mt-5 pt-5 flex flex-col sm:flex-row gap-3 sm:items-end" style="border-top:1px solid var(--border);">
+          <div class="flex-1 min-w-0 max-w-md">
+            <label class="text-xs" style="color:var(--text-muted)">Judul arsip (opsional)</label>
+            <input x-model="archiveLabelQa" type="text" placeholder="Contoh: Rencana Q1 2025"
+              class="input-field w-full rounded px-2 py-1.5 text-xs mt-1" />
+          </div>
+          <button @click="saveNicheArchive('qa')" :disabled="savingArchive"
+            class="btn-secondary rounded px-3 py-2 text-xs shrink-0 transition-colors disabled:opacity-40">
+            <span x-show="!savingArchive">Simpan ke arsip</span>
+            <span x-show="savingArchive">Menyimpan...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB TRENDING ===== -->
+  <div x-show="activeTab==='trending'" x-cloak>
+
+    <!-- Toolbar -->
+    <div class="flex items-start justify-between mb-5 flex-wrap gap-3">
+      <div>
+        <h1 class="text-base font-medium" style="color:var(--text);">Tren Saat Ini</h1>
+        <p class="text-xs mt-1" style="color:var(--text-muted);">
+          Topik yang sedang hangat di Indonesia — pilih untuk dianalisis AI
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span x-show="selectedTopics.length > 0" class="text-xs" style="color:var(--text-muted);">
+          <span x-text="selectedTopics.length"></span> dipilih
+        </span>
+        <button @click="loadTrending(true)" :disabled="loadingTrending"
+          class="btn-secondary rounded px-4 py-1.5 text-xs flex items-center gap-2 transition-colors disabled:opacity-40">
+          <svg :class="loadingTrending ? 'spinner' : ''" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Category filter -->
+    <div class="flex flex-wrap gap-1.5 mb-5">
+      <button @click="activeCategory = ''"
+        :class="activeCategory === '' ? 'cat-chip active' : 'cat-chip'"
+        class="rounded-full px-3 py-1 text-xs transition-all">
+        Semua
+      </button>
+      <template x-for="cat in trendCategories" :key="cat">
+        <button @click="activeCategory = cat"
+          :class="activeCategory === cat ? 'cat-chip active' : 'cat-chip'"
+          class="rounded-full px-3 py-1 text-xs transition-all"
+          x-text="cat">
+        </button>
+      </template>
+    </div>
+
+    <!-- Analyze button (floating, shows when topics selected) -->
+    <div x-show="selectedTopics.length > 0" class="sticky top-[72px] z-30 mb-4">
+      <div class="card rounded-lg px-4 py-3 flex items-center justify-between shadow-lg">
+        <p class="text-xs" style="color:var(--text-muted);">
+          <span x-text="selectedTopics.length"></span> topik dipilih
+          <span x-show="activeCategory"> dari <strong x-text="activeCategory"></strong></span>
+        </p>
+        <div class="flex items-center gap-2">
+          <button @click="selectedTopics = []" class="btn-ghost text-xs transition-colors">Batal</button>
+          <button @click="analyzeTrends()"
+            :disabled="trendAnalyzing"
+            class="btn-primary rounded px-4 py-1.5 text-xs transition-all flex items-center gap-1.5">
+            <span x-show="!trendAnalyzing">
+              <svg class="inline w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+              Analisis Niche dengan AI
+            </span>
+            <span x-show="trendAnalyzing" class="flex items-center gap-1.5">
+              <svg class="spinner w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="30 70"/>
+              </svg>
+              Menganalisis...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trend analysis result -->
+    <div x-show="trendResult" x-cloak class="card rounded-lg mb-6 overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style="border-bottom:1px solid var(--border);">
+        <p class="text-sm font-medium" style="color:var(--text);">Analisis Peluang Niche</p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button @click="copyResult(trendResult)"
+            class="btn-secondary rounded px-3 py-1.5 text-xs transition-colors">
+            <span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+          </button>
+          <a href="/creator.html" @click.prevent="goToCreator('trend', trendResult)"
+            class="btn-primary rounded px-3 py-1.5 text-xs transition-all inline-block">
+            Buat agen konten
+          </a>
+          <button @click="trendResult = ''; trendStreamBuffer = ''"
+            class="btn-ghost text-xs transition-colors">Tutup</button>
+        </div>
+      </div>
+      <div class="p-5 prose-content" x-html="marked.parse(trendResult)"></div>
+      <div class="px-5 pb-5 flex flex-col sm:flex-row gap-3 sm:items-end" style="border-top:1px solid var(--border); margin-top:0; padding-top:1rem;">
+        <div class="flex-1 min-w-0 max-w-md">
+          <label class="text-xs" style="color:var(--text-muted)">Judul arsip (opsional)</label>
+          <input x-model="archiveLabelTrend" type="text" placeholder="Contoh: Tren Agustus"
+            class="input-field w-full rounded px-2 py-1.5 text-xs mt-1" />
+        </div>
+        <button @click="saveNicheArchive('trend')" :disabled="savingArchive"
+          class="btn-secondary rounded px-3 py-2 text-xs shrink-0 transition-colors disabled:opacity-40">
+          <span x-show="!savingArchive">Simpan ke arsip</span>
+          <span x-show="savingArchive">Menyimpan...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Streaming preview saat analyzing -->
+    <div x-show="trendAnalyzing && trendStreamBuffer" class="card rounded-lg mb-6 p-5">
+      <div class="prose-content" x-html="marked.parse(trendStreamBuffer)"></div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div x-show="loadingTrending">
+      <template x-for="i in 3">
+        <div class="card rounded-lg mb-4 p-5">
+          <div class="skeleton h-3 w-32 mb-4"></div>
+          <template x-for="j in 4">
+            <div class="flex gap-3 py-3" style="border-bottom:1px solid var(--border);">
+              <div class="skeleton h-4 flex-1"></div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- Trending content by category -->
+    <div x-show="!loadingTrending" class="flex flex-col gap-4">
+      <template x-for="(articles, cat) in filteredTrending" :key="cat">
+        <div class="card rounded-lg overflow-hidden">
+          <!-- Category header -->
+          <div class="px-5 py-3 flex items-center justify-between"
+               style="border-bottom:1px solid var(--border);">
+            <div class="flex items-center gap-2">
+              <p class="text-xs font-medium uppercase tracking-widest" style="color:var(--text);"
+                 x-text="cat"></p>
+              <span class="text-xs" style="color:var(--text-faint);"
+                x-text="articles.length + ' topik'"></span>
+            </div>
+            <button @click="selectAllInCategory(cat, articles)"
+              class="text-xs btn-ghost transition-colors">
+              <span x-text="allCategorySelected(cat, articles) ? 'Batal semua' : 'Pilih semua'"></span>
+            </button>
+          </div>
+
+          <!-- Article rows -->
+          <template x-for="(article, idx) in articles" :key="idx">
+            <div class="news-row px-5 py-3 flex items-start gap-3 cursor-pointer"
+                 :class="isTopicSelected(article.title) ? 'selected' : ''"
+                 @click="toggleTopic(article.title)">
+              <!-- Checkbox visual -->
+              <div class="mt-0.5 w-4 h-4 rounded flex items-center justify-center shrink-0 transition-all"
+                   :class="isTopicSelected(article.title)
+                     ? 'bg-[var(--text)] border-[var(--text)]'
+                     : 'border border-[var(--border-mid)]'">
+                <svg x-show="isTopicSelected(article.title)" width="9" height="9"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                     style="color:var(--bg);">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm leading-snug" style="color:var(--text);" x-text="article.title"></p>
+                <p class="text-xs mt-1 leading-relaxed line-clamp-1" style="color:var(--text-muted);"
+                   x-text="article.summary"></p>
+              </div>
+              <a :href="article.url" target="_blank" @click.stop
+                 class="btn-ghost text-xs shrink-0 transition-colors">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+              </a>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <div x-show="Object.keys(filteredTrending).length === 0 && !loadingTrending"
+        class="text-center py-20 text-xs" style="color:var(--text-faint);">
+        Belum ada data. Klik Refresh untuk memuat topik trending.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB TERIMPAN ===== -->
+  <div x-show="activeTab==='saved'" x-cloak>
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
+      <div>
+        <h1 class="text-base font-medium" style="color:var(--text)">Niche tersimpan</h1>
+        <p class="text-xs mt-1" style="color:var(--text-muted)">
+          Arsip hasil analisis (Temukan Niche & Tren). Buka, kirim ke Creator, atau hapus.
+        </p>
+      </div>
+      <button @click="loadSavedNiches()" :disabled="loadingSaved"
+        class="btn-secondary rounded px-3 py-1.5 text-xs transition-colors">
+        Refresh
+      </button>
+    </div>
+
+    <div x-show="loadingSaved" class="space-y-2">
+      <template x-for="i in 4"><div class="skeleton h-16 rounded-lg"></div></template>
+    </div>
+
+    <div x-show="!loadingSaved && savedNiches.length === 0" class="card rounded-lg p-10 text-center text-xs" style="color:var(--text-muted)">
+      Belum ada niche yang disimpan. Setelah hasil analisis, gunakan "Simpan ke arsip" di bawah hasil.
+    </div>
+
+    <div x-show="!loadingSaved" class="flex flex-col gap-2">
+      <template x-for="row in savedNiches" :key="row.id">
+        <div class="card rounded-lg p-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="text-sm font-medium" style="color:var(--text)"
+                x-text="row.label && row.label.trim() ? row.label : 'Tanpa judul'"></p>
+              <span class="tag" x-text="row.source_type === 'trend' ? 'Tren' : 'Q&A'"></span>
+            </div>
+            <p class="text-xs mt-1" style="color:var(--text-faint)" x-text="row.created_at"></p>
+            <p class="text-xs mt-2 line-clamp-2" style="color:var(--text-muted)" x-text="previewNicheText(row.niche_text)"></p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap">
+            <button @click="savedModal = row" class="btn-secondary rounded px-3 py-1.5 text-xs">Buka</button>
+            <a href="/creator.html" @click.prevent="goToCreator(row.source_type, row.niche_text)"
+              class="btn-primary rounded px-3 py-1.5 text-xs inline-block">Buat agen</a>
+            <button @click="deleteSavedNiche(row.id)" class="btn-ghost text-xs" style="color:var(--text-muted)">Hapus</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</main>
+
+<!-- Modal detail arsip -->
+<div x-show="savedModal" x-cloak @click.self="savedModal = null"
+  class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="card rounded-lg w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+    <div class="flex items-start justify-between gap-3 px-5 py-4 shrink-0" style="border-bottom:1px solid var(--border)">
+      <div class="min-w-0">
+        <span class="tag" x-text="savedModal?.source_type === 'trend' ? 'Tren' : 'Q&A'"></span>
+        <p class="text-sm font-medium mt-2" style="color:var(--text)"
+          x-text="savedModal?.label && savedModal?.label.trim() ? savedModal.label : 'Tanpa judul'"></p>
+        <p class="text-xs mt-1" style="color:var(--text-faint)" x-text="savedModal?.created_at"></p>
+      </div>
+      <button @click="savedModal = null" class="btn-ghost text-lg leading-none">×</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div class="prose-content" x-html="savedModal ? marked.parse(savedModal.niche_text) : ''"></div>
+    </div>
+    <div class="px-5 py-3 flex gap-2 flex-wrap justify-end shrink-0" style="border-top:1px solid var(--border)">
+      <button @click="copyResult(savedModal?.niche_text)" class="btn-secondary rounded px-3 py-1.5 text-xs">Salin</button>
+      <a href="/creator.html" @click.prevent="goToCreator(savedModal?.source_type, savedModal?.niche_text); savedModal = null"
+        class="btn-primary rounded px-3 py-1.5 text-xs inline-block">Buat agen konten</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    ...siteHeaderMixin(),
+    isIndexPage: false,
+    activeTab: 'qa',
+
+    // ── Q&A state ──
+    currentStep: 0,
+    questions: [],
+    answers: {},           // { qid: [opts] | "single" }
+    qaAnalyzing: false,
+    qaResult: '',
+    qaStreamBuffer: '',
+    copied: false,
+
+    // ── Trending state ──
+    trending: {},          // { category: [articles] }
+    loadingTrending: false,
+    activeCategory: '',
+    selectedTopics: [],
+    trendAnalyzing: false,
+    trendResult: '',
+    trendStreamBuffer: '',
+
+    savedNiches: [],
+    savedTotal: 0,
+    loadingSaved: false,
+    archiveLabelQa: '',
+    archiveLabelTrend: '',
+    savingArchive: false,
+    savedModal: null,
+
+    // ── Computed ──
+    get currentQuestion() {
+      return this.questions[this.currentStep - 1] || null;
+    },
+    get trendCategories() {
+      return Object.keys(this.trending);
+    },
+    get filteredTrending() {
+      if (!this.activeCategory) return this.trending;
+      const result = {};
+      if (this.trending[this.activeCategory]) {
+        result[this.activeCategory] = this.trending[this.activeCategory];
+      }
+      return result;
+    },
+
+    // ── Init ──
+    async init() {
+      document.documentElement.className = this.darkMode ? 'dark' : 'light';
+      await this.checkStatus();
+      await this.loadQuestions();
+      await this.loadSavedNiches();
+    },
+
+    previewNicheText(text) {
+      if (!text) return '';
+      const t = text.replace(/#{1,6}\s?/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+      return t.length > 200 ? t.slice(0, 200) + '...' : t;
+    },
+
+    switchToTrending() {
+      this.activeTab = 'trending';
+      if (Object.keys(this.trending).length === 0) this.loadTrending(false);
+    },
+
+    switchToSaved() {
+      this.activeTab = 'saved';
+      this.loadSavedNiches();
+    },
+
+    async loadSavedNiches() {
+      this.loadingSaved = true;
+      try {
+        const res = await fetch('/api/niche/saved');
+        if (!res.ok) return;
+        const data = await res.json();
+        this.savedNiches = data.items || [];
+        this.savedTotal = data.total != null ? data.total : this.savedNiches.length;
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.loadingSaved = false;
+      }
+    },
+
+    async saveNicheArchive(kind) {
+      const text = kind === 'qa' ? this.qaResult : this.trendResult;
+      if (!text || !text.trim() || this.savingArchive) return;
+      this.savingArchive = true;
+      const label = kind === 'qa' ? this.archiveLabelQa : this.archiveLabelTrend;
+      const st = kind === 'qa' ? 'qa' : 'trend';
+      try {
+        const res = await fetch('/api/niche/saved', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ niche_text: text, source_type: st, label: label || '' }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          const msg = Array.isArray(d.detail) ? d.detail[0]?.msg : d.detail;
+          throw new Error(msg || 'Gagal menyimpan');
+        }
+        if (kind === 'qa') this.archiveLabelQa = '';
+        else this.archiveLabelTrend = '';
+        await this.loadSavedNiches();
+      } catch (e) {
+        alert(e.message || 'Gagal');
+      } finally {
+        this.savingArchive = false;
+      }
+    },
+
+    async deleteSavedNiche(id) {
+      if (!confirm('Hapus arsip ini?')) return;
+      try {
+        const res = await fetch('/api/niche/saved/' + id, { method: 'DELETE' });
+        if (!res.ok) return;
+        if (this.savedModal?.id === id) this.savedModal = null;
+        await this.loadSavedNiches();
+      } catch (e) {}
+    },
+
+    // ── Questions ──
+    async loadQuestions() {
+      try {
+        const res = await fetch('/api/niche/questions');
+        const data = await res.json();
+        this.questions = data.questions || [];
+      } catch (e) {
+        console.error('Gagal load questions:', e);
+      }
+    },
+
+    // ── Q&A wizard ──
+    toggleAnswer(opt) {
+      const q = this.currentQuestion;
+      if (!q) return;
+      if (q.type === 'single') {
+        this.answers[q.id] = [opt];
+      } else {
+        const cur = this.answers[q.id] || [];
+        const idx = cur.indexOf(opt);
+        if (idx === -1) {
+          this.answers[q.id] = [...cur, opt];
+        } else {
+          this.answers[q.id] = cur.filter(o => o !== opt);
+        }
+      }
+    },
+    isSelected(opt) {
+      const q = this.currentQuestion;
+      if (!q) return false;
+      return (this.answers[q.id] || []).includes(opt);
+    },
+    currentAnswerValid() {
+      const q = this.currentQuestion;
+      if (!q) return false;
+      return (this.answers[q.id] || []).length > 0;
+    },
+    nextStep() {
+      if (this.currentStep < this.questions.length) this.currentStep++;
+    },
+    prevStep() {
+      if (this.currentStep > 1) this.currentStep--;
+    },
+    resetQA() {
+      this.currentStep = 0;
+      this.answers = {};
+      this.qaResult = '';
+      this.qaStreamBuffer = '';
+      this.qaAnalyzing = false;
+    },
+
+    async submitQA() {
+      if (!this.currentAnswerValid()) return;
+      this.qaAnalyzing = true;
+      this.qaResult = '';
+      this.qaStreamBuffer = '';
+      try {
+        const res = await fetch('/api/niche/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers: this.answers }),
+        });
+        if (!res.ok) {
+          this.qaResult = `**Error:** Server mengembalikan status ${res.status}`;
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          full += chunk;
+          this.qaStreamBuffer = full;
+        }
+        this.qaResult = full;
+      } catch (e) {
+        this.qaResult = `**Error:** ${e.message}`;
+      } finally {
+        this.qaAnalyzing = false;
+      }
+    },
+
+    // ── Trending ──
+    async loadTrending(forceRefresh = false) {
+      this.loadingTrending = true;
+      try {
+        const url = '/api/niche/trending' + (forceRefresh ? '?_t=' + Date.now() : '');
+        const res = await fetch(url);
+        this.trending = await res.json();
+      } catch (e) {
+        console.error('Gagal load trending:', e);
+      } finally {
+        this.loadingTrending = false;
+      }
+    },
+
+    isTopicSelected(title) {
+      return this.selectedTopics.includes(title);
+    },
+    toggleTopic(title) {
+      const idx = this.selectedTopics.indexOf(title);
+      if (idx === -1) this.selectedTopics.push(title);
+      else this.selectedTopics.splice(idx, 1);
+    },
+    allCategorySelected(cat, articles) {
+      return articles.every(a => this.selectedTopics.includes(a.title));
+    },
+    selectAllInCategory(cat, articles) {
+      if (this.allCategorySelected(cat, articles)) {
+        this.selectedTopics = this.selectedTopics.filter(
+          t => !articles.some(a => a.title === t)
+        );
+      } else {
+        articles.forEach(a => {
+          if (!this.selectedTopics.includes(a.title)) this.selectedTopics.push(a.title);
+        });
+      }
+    },
+
+    async analyzeTrends() {
+      if (!this.selectedTopics.length || this.trendAnalyzing) return;
+      this.trendAnalyzing = true;
+      this.trendResult = '';
+      this.trendStreamBuffer = '';
+      try {
+        const res = await fetch('/api/niche/trend-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topics: this.selectedTopics,
+            category: this.activeCategory,
+          }),
+        });
+        if (!res.ok) {
+          this.trendResult = `**Error:** Server mengembalikan status ${res.status}`;
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let full = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          full += chunk;
+          this.trendStreamBuffer = full;
+        }
+        this.trendResult = full;
+        this.trendStreamBuffer = '';
+      } catch (e) {
+        this.trendResult = `**Error:** ${e.message}`;
+      } finally {
+        this.trendAnalyzing = false;
+      }
+    },
+
+    async copyResult(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        this.copied = true;
+        setTimeout(() => this.copied = false, 2000);
+      } catch (e) {}
+    },
+
+    goToCreator(sourceType, nicheText) {
+      if (!nicheText || !nicheText.trim()) return;
+      try {
+        sessionStorage.setItem('creator_niche_text', nicheText);
+        sessionStorage.setItem('creator_source_type', sourceType);
+      } catch (e) {}
+      window.location.href = '/creator.html';
+    },
+  };
+}
+</script>
+</body>
+</html>
