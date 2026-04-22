@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 import asyncio
 import concurrent.futures
@@ -462,7 +462,7 @@ class CreateCreatorAgentRequest(BaseModel):
 
 
 class UpdateCreatorScrapeKeywordsRequest(BaseModel):
-    scrape_keywords: list = []
+    scrape_keywords: list = Field(default_factory=list)
 
 
 @app.post("/api/creator/agents")

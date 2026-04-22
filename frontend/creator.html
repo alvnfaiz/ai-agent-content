@@ -44,6 +44,9 @@
     .skeleton { background: var(--skel); border-radius: 3px; }
     .news-row { background: var(--bg); }
     .news-row:hover, .news-row.sel { background: var(--bg-subtle); }
+    .kw-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--tag-bg); border: 1px solid var(--tag-border);
+      color: var(--tag-text); font-size: 0.7rem; padding: 2px 8px; border-radius: 3px; cursor: pointer; }
+    .kw-chip:hover { border-color: var(--text-muted); color: var(--text-mid); }
   </style>
 </head>
 <body class="min-h-screen">
@@ -231,7 +234,7 @@
 
   <div x-show="loadingAgents" class="skeleton h-20 rounded-lg mb-4"></div>
   <div x-show="!loadingAgents && agents.length === 0 && !draftNiche" class="text-xs py-10 text-center card rounded-lg" style="color:var(--text-muted)">
-    Belum ada agen. Selesaikan analisis di <a href="/niche.html" class="underline" style="color:var(--text-mid)">Niche</a> lalu klik "Buat agen konten", atau tempel hasil niche di bawah.
+    Belum ada agen. Selesaikan analisis di <a href="/niche.html" class="underline" style="color:var(--text-mid)">Niche</a> lalu klik "Buat agen konten", atau (jika belum membuka agen) gunakan form agen manual di paling bawah halaman.
   </div>
 
   <div class="grid gap-2 mb-8">
@@ -260,16 +263,49 @@
           <p class="text-xs uppercase tracking-widest" style="color:var(--text-faint)">Agen</p>
           <h3 class="text-lg font-medium mt-1" style="color:var(--text)" x-text="currentAgent?.name"></h3>
         </div>
-        <button @click="deleteCurrentAgent()" class="btn-ghost text-xs" style="color:var(--text-muted)">Hapus agen</button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" @click="closeAgentDetail()" class="btn-ghost text-xs" style="color:var(--text-muted)">Tutup detail</button>
+          <button type="button" @click="deleteCurrentAgent()" class="btn-ghost text-xs" style="color:var(--text-muted)">Hapus agen</button>
+        </div>
       </div>
       <p class="text-xs mt-3" style="color:var(--text-muted)">Sumber: <span x-text="currentAgent?.source_type"></span></p>
+    </div>
+
+    <!-- Keyword pencarian (tersimpan per agen) -->
+    <div class="card rounded-lg p-5">
+      <h4 class="text-xs uppercase tracking-widest mb-2" style="color:var(--text-faint)">Keyword pencarian berita</h4>
+      <p class="text-xs mb-3" style="color:var(--text-muted)">
+        Keyword ini disimpan di agen. Dipakai saat "Cari bahan konten" (bersama isyarat dari teks niche) agar hasil Google News mengikuti fokusmu.
+        <span x-show="!keywordsSynced" class="block mt-1" style="color:#b5893d">Perubahan belum disimpan — klik Simpan, atau lanjut Cari bahan (akan disimpan otomatis).</span>
+      </p>
+      <div class="flex flex-wrap gap-1.5 mb-3" x-show="agentKeywords.length">
+        <template x-for="kw in agentKeywords" :key="kw">
+          <button type="button" @click="removeAgentKw(kw)" class="kw-chip" :title="'Hapus ' + kw">
+            <span x-text="kw"></span>
+            <span style="color:var(--text-faint)">×</span>
+          </button>
+        </template>
+      </div>
+      <form @submit.prevent="addAgentKw()" class="flex flex-col sm:flex-row gap-2 mb-3">
+        <input x-model="newAgentKeyword" type="text" class="input-field flex-1 rounded px-3 py-2 text-sm"
+          placeholder="Contoh: startup AI, podcast edukasi" />
+        <div class="flex gap-2 shrink-0">
+          <button type="submit" :disabled="!newAgentKeyword.trim()"
+            class="btn-secondary rounded px-3 py-2 text-xs">Tambah</button>
+          <button type="button" @click="saveAgentKeywords()" :disabled="savingKeywords"
+            class="btn-primary rounded px-3 py-2 text-xs">
+            <span x-show="!savingKeywords">Simpan</span>
+            <span x-show="savingKeywords">…</span>
+          </button>
+        </div>
+      </form>
     </div>
 
     <!-- Scrape -->
     <div class="card rounded-lg p-5">
       <h4 class="text-xs uppercase tracking-widest mb-2" style="color:var(--text-faint)">1. Bahan konten (web & berita)</h4>
       <p class="text-xs mb-3" style="color:var(--text-muted)">
-        Kami memuat topik terkini dari Google News (RSS) berdasarkan teks niche agen, lalu menyimpannya ke database.
+        Kami memuat topik terkini dari Google News (RSS) berdasarkan teks niche agen dan keyword di atas, lalu menyimpannya ke database.
       </p>
       <div class="flex items-center gap-2 flex-wrap">
         <button @click="runScrape()" :disabled="scraping"
@@ -360,8 +396,8 @@
     </div>
   </div>
 
-  <!-- manual niche tanpa niche page -->
-  <div class="mt-8 card rounded-lg p-5" x-show="!draftNiche">
+  <!-- manual niche tanpa niche page (sembunyi jika agen sudah dipilih) -->
+  <div class="mt-8 card rounded-lg p-5" x-show="!draftNiche && !currentAgent" x-cloak>
     <h3 class="text-sm font-medium mb-2" style="color:var(--text)">Atau buat agen manual</h3>
     <p class="text-xs mb-3" style="color:var(--text-muted)">Tempel hasil analisis niche / deskripsi sendiri jika belum lewat halaman Niche.</p>
     <textarea x-model="manualNiche" rows="4" class="input-field w-full rounded px-3 py-2 text-sm mb-2" placeholder="Tempel teks niche..."></textarea>
@@ -396,6 +432,9 @@ function app() {
     genResult: '',
     copyOk: false,
     generations: [],
+    agentKeywords: [],
+    newAgentKeyword: '',
+    savingKeywords: false,
     platforms: [
       { id: 'tiktok', label: 'TikTok' },
       { id: 'instagram', label: 'Instagram' },
@@ -411,6 +450,30 @@ function app() {
     get canGen() {
       if (!this.selectedScrapeId || !this.selPlat.length || !this.selOut.length) return false;
       return true;
+    },
+    get keywordsSynced() {
+      const toSet = (arr) => {
+        const s = new Set();
+        (arr || []).forEach((k) => {
+          const t = String(k).trim().toLowerCase();
+          if (t) s.add(t);
+        });
+        return s;
+      };
+      const a = toSet(this.agentKeywords);
+      const b = toSet(this.currentAgent?.scrape_keywords);
+      if (a.size !== b.size) return false;
+      for (const x of a) { if (!b.has(x)) return false; }
+      return true;
+    },
+    closeAgentDetail() {
+      this.currentAgent = null;
+      this.currentAgentId = null;
+      this.scrapes = [];
+      this.selectedScrapeId = null;
+      this.genResult = '';
+      this.agentKeywords = [];
+      this.newAgentKeyword = '';
     },
     async init() {
       document.documentElement.className = this.darkMode ? 'dark' : 'light';
@@ -484,14 +547,54 @@ function app() {
       } catch (e) { console.error(e); }
       finally { this.loadingAgents = false; }
     },
+    removeAgentKw(kw) {
+      const i = this.agentKeywords.findIndex(
+        (k) => k.toLowerCase() === (kw || '').toLowerCase()
+      );
+      if (i !== -1) this.agentKeywords.splice(i, 1);
+    },
+    addAgentKw() {
+      const kw = (this.newAgentKeyword || '').trim();
+      if (!kw) return;
+      if (this.agentKeywords.some((k) => k.toLowerCase() === kw.toLowerCase())) {
+        this.newAgentKeyword = '';
+        return;
+      }
+      this.agentKeywords.push(kw);
+      this.newAgentKeyword = '';
+    },
+    async saveAgentKeywords() {
+      if (!this.currentAgentId) return false;
+      this.savingKeywords = true;
+      try {
+        const res = await fetch('/api/creator/agents/' + this.currentAgentId + '/keywords', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scrape_keywords: this.agentKeywords }),
+        });
+        if (!res.ok) throw new Error('Gagal menyimpan');
+        this.currentAgent = await res.json();
+        const kws = this.currentAgent.scrape_keywords;
+        this.agentKeywords = Array.isArray(kws) ? [...kws] : [];
+        return true;
+      } catch (e) {
+        alert('Keyword: ' + (e && e.message ? e.message : e));
+        return false;
+      } finally {
+        this.savingKeywords = false;
+      }
+    },
     async openAgent(id) {
       this.currentAgentId = id;
       this.selectedScrapeId = null;
       this.genResult = '';
+      this.newAgentKeyword = '';
       try {
         const r = await fetch('/api/creator/agents/' + id);
         if (!r.ok) return;
         this.currentAgent = await r.json();
+        const kws = this.currentAgent.scrape_keywords;
+        this.agentKeywords = Array.isArray(kws) ? [...kws] : [];
         const s = await fetch('/api/creator/agents/' + id + '/scrapes');
         const sd = await s.json();
         this.scrapes = sd.items || [];
@@ -502,6 +605,10 @@ function app() {
     },
     async runScrape() {
       if (!this.currentAgentId) return;
+      if (!this.keywordsSynced) {
+        const ok = await this.saveAgentKeywords();
+        if (!ok) return;
+      }
       this.scraping = true;
       try {
         const r = await fetch('/api/creator/agents/' + this.currentAgentId + '/scrape', { method: 'POST' });
@@ -571,6 +678,7 @@ function app() {
       this.currentAgent = null;
       this.currentAgentId = null;
       this.scrapes = [];
+      this.agentKeywords = [];
       this.loadAgents();
     },
   };
