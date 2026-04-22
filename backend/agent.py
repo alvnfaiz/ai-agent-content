@@ -178,7 +178,7 @@ Pastikan semua output langsung bisa digunakan dan sesuai karakter masing-masing 
 class OllamaBackend:
     """Backend menggunakan Ollama (lokal, cepat, model: gemma3/llama3/dll)."""
 
-    def __init__(self, model: str = "gemma3"):
+    def __init__(self, model: str = "gemma4:31b-cloud"):
         self.model = model
 
     def generate_stream(
@@ -506,7 +506,7 @@ class BackendManager:
 
     def __init__(self):
         self._backend_type: str = "ollama"
-        self._ollama = OllamaBackend(model="gemma3")
+        self._ollama = OllamaBackend(model="gemma4:31b-cloud")
         self._airllm: AirLLMBackend | None = None
 
     @classmethod
@@ -524,7 +524,7 @@ class BackendManager:
             return self._airllm
         return self._ollama
 
-    def set_ollama(self, model: str = "gemma3") -> dict:
+    def set_ollama(self, model: str = "gemma4:31b-cloud") -> dict:
         self._ollama = OllamaBackend(model=model)
         self._backend_type = "ollama"
         return {"backend": "ollama", "model": model}

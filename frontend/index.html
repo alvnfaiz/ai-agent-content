@@ -130,6 +130,12 @@
     .news-row-selected { background: var(--bg-subtle) !important; }
     .grid-gap { background: var(--border); }
 
+    /* Keyword chips */
+    .kw-chip { background: var(--tag-bg); border: 1px solid var(--tag-border); color: var(--tag-text); cursor: pointer; }
+    .kw-chip:hover { border-color: var(--text-muted); color: var(--text-mid); }
+    .kw-chip-active { background: var(--text); color: var(--bg); border: 1px solid var(--text); cursor: pointer; font-weight: 500; }
+    .kw-chip-active:hover { opacity: 0.85; }
+
     .divider { border-color: var(--border); }
 
     /* Mode toggle button */
@@ -245,7 +251,7 @@
         </p>
         <div>
           <label class="text-xs block mb-1.5" style="color:var(--text-muted);">Model</label>
-          <input x-model="ollamaModelInput" type="text" placeholder="gemma3"
+          <input x-model="ollamaModelInput" type="text" placeholder="gemma4:latest"
             class="input-field w-full rounded px-3 py-2 text-sm" />
           <p class="text-xs mt-1.5" style="color:var(--text-faint);">
             Tersedia: <span x-text="backendStatus?.ollama?.models?.join(', ') || '—'"></span>
@@ -349,8 +355,12 @@
       <div>
         <h1 class="text-base font-medium" style="color:var(--text);">Berita Teknologi & AI</h1>
         <p class="text-xs mt-1" style="color:var(--text-muted);">
-          <span x-show="filterSource" x-text="newsTotal + ' artikel dari ' + filterSource"></span>
-          <span x-show="!filterSource" x-text="newsTotal + ' artikel dari ' + sources.length + ' sumber'"></span>
+          <span x-show="activeKeywordCount > 0"
+            x-text="filteredNews.length + ' dari ' + newsTotal + ' artikel (filter aktif)'"></span>
+          <span x-show="activeKeywordCount === 0 && filterSource"
+            x-text="newsTotal + ' artikel dari ' + filterSource"></span>
+          <span x-show="activeKeywordCount === 0 && !filterSource"
+            x-text="newsTotal + ' artikel dari ' + sources.length + ' sumber'"></span>
           <span x-show="cacheAge !== null"> &bull; diperbarui <span x-text="cacheAge"></span> menit lalu</span>
         </p>
       </div>
@@ -369,6 +379,112 @@
           </svg>
           Refresh
         </button>
+      </div>
+    </div>
+
+    <!-- ── Keyword filter panel ── -->
+    <div class="card rounded-lg mb-6 overflow-hidden">
+      <!-- Header row -->
+      <div class="flex items-center justify-between px-4 py-2.5 cursor-pointer"
+           style="border-bottom: 1px solid var(--border);"
+           @click="showKeywordPanel = !showKeywordPanel">
+        <div class="flex items-center gap-2">
+          <!-- Filter icon -->
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted);">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
+          </svg>
+          <span class="text-xs font-medium" style="color:var(--text-muted);">Filter Kata Kunci</span>
+          <!-- Badge jumlah aktif -->
+          <span x-show="activeKeywordCount > 0"
+            class="kw-chip-active rounded-full px-1.5 py-0.5 font-medium"
+            style="font-size:0.6rem;"
+            x-text="activeKeywordCount"></span>
+          <span x-show="activeKeywordCount === 0" class="text-xs" style="color:var(--text-faint);">
+            — <span x-text="filteredNews.length"></span> berita
+          </span>
+          <span x-show="activeKeywordCount > 0" class="text-xs" style="color:var(--text-faint);">
+            — <span x-text="filteredNews.length"></span> / <span x-text="news.length"></span> berita
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button x-show="activeKeywordCount > 0"
+            @click.stop="clearKeywords()"
+            class="text-xs btn-ghost transition-colors"
+            style="color:var(--text-faint);">Hapus semua</button>
+          <svg :class="showKeywordPanel ? 'rotate-180' : ''" class="transition-transform"
+               width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+               style="color:var(--text-faint);">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Keyword groups (collapsible) -->
+      <div x-show="showKeywordPanel" class="px-4 py-4 flex flex-col gap-4">
+
+        <!-- Keyword yang sedang aktif (tampil di atas jika ada) -->
+        <div x-show="activeKeywordCount > 0" class="flex flex-wrap gap-1.5 pb-3"
+          style="border-bottom:1px solid var(--border);">
+          <template x-for="kw in selectedKeywords" :key="kw">
+            <button @click="toggleKeyword(kw)"
+              class="kw-chip-active flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-all">
+              <span x-text="kw"></span>
+              <svg width="9" height="9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </template>
+        </div>
+
+        <!-- Preset per grup -->
+        <template x-for="group in keywordGroups" :key="group.label">
+          <div>
+            <p class="text-xs mb-2 uppercase tracking-widest" style="color:var(--text-faint);"
+               x-text="group.label"></p>
+            <div class="flex flex-wrap gap-1.5">
+              <template x-for="kw in group.keys" :key="kw">
+                <button @click="toggleKeyword(kw)"
+                  :class="isKeywordActive(kw)
+                    ? 'kw-chip-active'
+                    : 'kw-chip'"
+                  class="rounded-full px-2.5 py-1 text-xs transition-all"
+                  x-text="kw">
+                </button>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <!-- Custom keyword input -->
+        <div>
+          <p class="text-xs mb-2 uppercase tracking-widest" style="color:var(--text-faint);">Custom</p>
+          <form @submit.prevent="addCustomKeyword()" class="flex items-center gap-2">
+            <input x-model="customKeyword"
+              type="text"
+              placeholder="Ketik keyword lalu Enter..."
+              class="input-field rounded px-3 py-1.5 text-xs flex-1" />
+            <button type="submit"
+              :disabled="!customKeyword.trim()"
+              class="btn-secondary rounded px-3 py-1.5 text-xs transition-colors disabled:opacity-40">
+              Tambah
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Chips aktif (tampil ringkas saat panel tertutup) -->
+      <div x-show="!showKeywordPanel && activeKeywordCount > 0"
+        class="flex flex-wrap gap-1.5 px-4 py-2.5">
+        <template x-for="kw in selectedKeywords" :key="kw">
+          <button @click="toggleKeyword(kw)"
+            class="kw-chip-active flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all">
+            <span x-text="kw"></span>
+            <svg width="8" height="8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </template>
       </div>
     </div>
 
@@ -414,8 +530,14 @@
     </div>
 
     <div x-show="!loadingNews && filteredNews.length === 0 && news.length > 0"
-      class="text-center py-20 text-xs" style="color:var(--text-faint);">
-      Tidak ada berita dari sumber ini.
+      class="text-center py-20 text-xs flex flex-col items-center gap-2" style="color:var(--text-faint);">
+      <span x-show="activeKeywordCount > 0">
+        Tidak ada berita yang cocok dengan keyword:
+        <span style="color:var(--text-muted);" x-text="selectedKeywords.join(', ')"></span>
+      </span>
+      <span x-show="activeKeywordCount === 0">Tidak ada berita dari sumber ini.</span>
+      <button x-show="activeKeywordCount > 0" @click="clearKeywords()"
+        class="btn-ghost text-xs underline mt-1 transition-colors">Hapus semua filter</button>
     </div>
     <div x-show="!loadingNews && news.length === 0"
       class="text-center py-20" style="color:var(--text-faint);">
@@ -570,7 +692,7 @@
             class="btn-ghost flex items-center gap-1.5 transition-colors">
             <span class="status-dot"
               :class="backendStatus?.active === 'airllm' ? 'status-warning' : (ollamaStatus.connected ? 'status-online' : 'status-offline')"></span>
-            <span x-text="backendStatus?.active === 'airllm' ? 'AirLLM — ' + (backendStatus?.airllm?.preset || '') : 'Ollama — ' + (backendStatus?.ollama?.active_model || 'gemma3')"></span>
+            <span x-text="backendStatus?.active === 'airllm' ? 'AirLLM — ' + (backendStatus?.airllm?.preset || '') : 'Ollama — ' + (backendStatus?.ollama?.active_model || 'gemma4:31b-cloud')"></span>
             <span style="color:var(--text-faint);">/ ganti</span>
           </button>
         </div>
@@ -788,6 +910,33 @@ function app() {
     selectedNews: null,
     newsTotal: 0,
 
+    selectedKeywords: [],
+    customKeyword: '',
+    showKeywordPanel: false,
+    keywordGroups: [
+      {
+        label: 'AI & Model',
+        keys: ['AI', 'LLM', 'Claude', 'ChatGPT', 'GPT', 'Gemini', 'OpenAI', 'Anthropic',
+                'Llama', 'Mistral', 'Grok', 'Copilot', 'token', 'transformer', 'neural network',
+                'generative AI', 'foundation model', 'multimodal'],
+      },
+      {
+        label: 'Tech & Perusahaan',
+        keys: ['GitHub', 'Intel', 'NVIDIA', 'Google', 'Microsoft', 'Meta', 'Apple', 'AMD',
+                'Amazon', 'Tesla', 'Samsung', 'Qualcomm', 'ARM', 'OpenAI', 'Hugging Face'],
+      },
+      {
+        label: 'Programming & Dev',
+        keys: ['Python', 'programming', 'developer', 'open source', 'API', 'code', 'software',
+                'framework', 'library', 'agent', 'RAG', 'fine-tuning', 'training', 'inference'],
+      },
+      {
+        label: 'Topik Teknologi',
+        keys: ['technology', 'chip', 'hardware', 'robot', 'automation', 'cloud', 'cybersecurity',
+                'quantum', 'semiconductor', 'data center', 'GPU', 'benchmark'],
+      },
+    ],
+
     manualTitle: '',
     manualSummary: '',
     selectedPlatforms: ['tiktok'],
@@ -811,7 +960,7 @@ function app() {
     backendStatus: null,
     showBackendPanel: false,
     selectedBackendType: 'ollama',
-    ollamaModelInput: 'gemma3',
+    ollamaModelInput: 'gemma4:31b-cloud',
     airllmPreset: 'llama3-8b',
     airllmCompression: '4bit',
     airllmToken: '',
@@ -834,8 +983,14 @@ function app() {
     ],
 
     get filteredNews() {
-      return this.news;
+      if (!this.selectedKeywords.length) return this.news;
+      const kws = this.selectedKeywords.map(k => k.toLowerCase());
+      return this.news.filter(a => {
+        const text = ((a.title || '') + ' ' + (a.summary || '')).toLowerCase();
+        return kws.some(k => text.includes(k));
+      });
     },
+    get activeKeywordCount() { return this.selectedKeywords.length; },
     get activeTitle() { return this.manualTitle || this.selectedNews?.title || ''; },
     get activeSummary() { return this.manualSummary || this.selectedNews?.summary || ''; },
     get isBusy() { return this.generating || this.assisting; },
@@ -852,6 +1007,22 @@ function app() {
       if (!id) return '';
       return id.split(',').map(p => map[p.trim()] || p.trim()).join(', ');
     },
+
+    toggleKeyword(kw) {
+      const idx = this.selectedKeywords.findIndex(k => k.toLowerCase() === kw.toLowerCase());
+      if (idx === -1) this.selectedKeywords.push(kw);
+      else this.selectedKeywords.splice(idx, 1);
+    },
+    isKeywordActive(kw) {
+      return this.selectedKeywords.some(k => k.toLowerCase() === kw.toLowerCase());
+    },
+    addCustomKeyword() {
+      const kw = this.customKeyword.trim();
+      if (!kw) return;
+      if (!this.isKeywordActive(kw)) this.selectedKeywords.push(kw);
+      this.customKeyword = '';
+    },
+    clearKeywords() { this.selectedKeywords = []; },
 
     togglePlatform(id) {
       const idx = this.selectedPlatforms.indexOf(id);

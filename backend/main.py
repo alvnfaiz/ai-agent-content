@@ -78,7 +78,7 @@ async def get_backend_status():
 
 
 class SetOllamaRequest(BaseModel):
-    model: str = "gemma3"
+    model: str = "gemma4:latest"
 
 
 class SetAirLLMRequest(BaseModel):
