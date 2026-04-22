@@ -2,7 +2,7 @@
 
 Agent AI lokal untuk membantu content creator TikTok, Instagram Reels, dan YouTube Shorts membuat konten teknologi & AI secara otomatis.
 
-**Powered by:** Ollama + Gemma3 (lokal, gratis, privat)
+**Powered by:** Ollama + Gemma3 **atau** AirLLM (70B di GPU 4GB) — pilih sesuai kebutuhan.
 
 ---
 
@@ -14,57 +14,66 @@ Agent AI lokal untuk membantu content creator TikTok, Instagram Reels, dan YouTu
 - **📝 Script Video** — Script lengkap siap pakai untuk video 30-60 detik
 - **📱 Caption + Hashtag** — Caption + 15-20 hashtag relevan campuran Indonesia & Inggris
 - **🔄 Regenerate** — Minta variasi berbeda kapanpun
-- **Cache berita** — Data berita di-cache 30 menit, hemat bandwidth
+- **🗄 Database SQLite** — Semua berita yang di-scrape dan konten yang di-generate tersimpan otomatis
+- **🗂 Riwayat Generate** — Lihat, salin, pakai ulang, atau hapus konten yang pernah dibuat
+- **🚀 Dual Backend** — Switch antara Ollama (cepat) dan AirLLM (70B, kualitas tinggi) tanpa restart
 
 ---
 
 ## Prasyarat
 
 1. **Python 3.10+** — [python.org](https://python.org)
-2. **Ollama** — [ollama.com](https://ollama.com) (download & install)
-3. **Model Gemma3** — Pull via Ollama
+2. **Salah satu backend AI:**
+   - **Ollama** (direkomendasikan untuk pemula) — [ollama.com](https://ollama.com)
+   - **AirLLM** (untuk model 70B di GPU 4GB) — install via pip
 
 ---
 
 ## Cara Setup & Menjalankan
 
-### 1. Install Ollama & Download Model
+### 1. Clone Repository
 
 ```bash
-# Install Ollama dari https://ollama.com/download
-# Lalu pull model gemma3:
-ollama pull gemma3
+git clone https://github.com/alvnfaiz/ai-agent-content.git
+cd ai-agent-content
 ```
 
-> Gemma3 ukurannya sekitar 3-5 GB tergantung varian. Untuk PC dengan RAM 8GB+ sudah cukup.
-
-### 2. Clone / Download Project
-
-```bash
-cd ai-content-agent
-```
-
-### 3. Install Dependensi Python
+### 2. Install Dependensi Python
 
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
 
-### 4. Jalankan Ollama (jika belum berjalan)
+> Untuk AirLLM (opsional), install tambahan:
+> ```bash
+> pip install airllm transformers torch bitsandbytes
+> ```
+
+### 3. Setup Backend AI
+
+#### Opsi A — Ollama (cepat, mudah)
 
 ```bash
+# Install Ollama dari https://ollama.com/download
+ollama pull gemma3
 ollama serve
 ```
 
-### 5. Jalankan Backend
+#### Opsi B — AirLLM (70B model, GPU 4GB)
+
+Tidak perlu Ollama. Model akan di-download otomatis dari HuggingFace saat pertama kali generate. Pastikan sudah install dependensi di langkah 2.
+
+### 4. Jalankan Backend
 
 ```bash
 # Di dalam folder backend/
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 6. Buka Browser
+Database SQLite akan dibuat otomatis di `data/content_agent.db` saat server pertama kali dijalankan.
+
+### 5. Buka Browser
 
 Buka: **http://localhost:8000**
 
@@ -75,12 +84,15 @@ Buka: **http://localhost:8000**
 ```
 ai-content-agent/
 ├── backend/
-│   ├── main.py          # FastAPI server & routes
-│   ├── agent.py         # Ollama integration + prompt templates
-│   ├── news_fetcher.py  # RSS aggregator dengan cache 30 menit
+│   ├── main.py          # FastAPI server & semua routes
+│   ├── agent.py         # OllamaBackend, AirLLMBackend, BackendManager
+│   ├── database.py      # SQLite init, CRUD news & generated contents
+│   ├── news_fetcher.py  # RSS aggregator + cache 30 menit + simpan ke DB
 │   └── requirements.txt
 ├── frontend/
 │   └── index.html       # Web UI (Tailwind CSS + Alpine.js)
+├── data/
+│   └── content_agent.db # SQLite database (auto-created)
 └── README.md
 ```
 
@@ -88,12 +100,38 @@ ai-content-agent/
 
 ## Cara Pakai
 
-1. **Pilih Berita** — Di tab "Berita", klik berita yang menarik dan klik tombol "Pilih"
-2. **Atau Tulis Manual** — Di tab "Generate", ketik judul dan ringkasan berita sendiri
+1. **Pilih Berita** — Di tab "📰 Berita", klik berita yang menarik dan klik tombol "Pilih". Berita otomatis tersimpan ke database.
+2. **Atau Tulis Manual** — Di tab "✨ Generate", ketik judul dan ringkasan berita sendiri
 3. **Pilih Platform** — TikTok, Instagram, atau YouTube Shorts
-4. **Pilih Output** — Centang kombinasi: Ide Konten, Hook, Script, Caption
-5. **Klik Generate** — Tunggu 20-40 detik, Gemma3 akan membuat konten
-6. **Salin & Gunakan** — Klik "Salin Semua" atau copy bagian tertentu
+4. **Pilih Output** — Ide Konten, Hook, Script, Caption (bisa kombinasi)
+5. **Pilih Backend** — Klik badge backend di header untuk switch Ollama/AirLLM
+6. **Klik Generate** — Hasil otomatis tersimpan ke database setelah selesai
+7. **Lihat Riwayat** — Tab "🗂 Riwayat" untuk akses semua konten yang pernah dibuat
+
+---
+
+## Backend: Ollama vs AirLLM
+
+| | Ollama + Gemma3 | AirLLM (70B) |
+|---|---|---|
+| **Setup** | `ollama pull gemma3` | `pip install airllm` |
+| **Kecepatan** | 10-30 detik | 1-5 menit |
+| **Kualitas** | Bagus | Jauh lebih baik |
+| **VRAM** | Tidak butuh GPU | GPU 4GB cukup |
+| **Disk** | ~2-5 GB | 15-140 GB |
+| **Model pilihan** | gemma3, llama3, dll | Llama3-70B, Qwen2.5-72B, dll |
+
+### Model AirLLM yang Tersedia
+
+| Preset | Model | Disk | Keterangan |
+|---|---|---|---|
+| `llama3-8b` | Meta Llama3 8B Instruct | ~16 GB | Ringan, cepat |
+| `llama3-70b` | Meta Llama3 70B Instruct | ~140 GB | Kualitas tertinggi |
+| `mistral-7b` | Mistral 7B Instruct v0.2 | ~14 GB | Balanced |
+| `qwen2.5-7b` | Qwen2.5 7B Instruct | ~15 GB | Bagus untuk bahasa Indonesia |
+| `qwen2.5-72b` | Qwen2.5 72B Instruct | ~145 GB | Sangat powerful |
+
+> Model Llama3 membutuhkan HuggingFace token (model gated). Buat di [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
 
 ---
 
@@ -101,21 +139,29 @@ ai-content-agent/
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/status` | Status koneksi Ollama & cache |
-| GET | `/api/news?refresh=false` | Ambil berita (gunakan `refresh=true` untuk paksa refresh) |
-| POST | `/api/generate` | Generate konten dari berita |
+| GET | `/api/status` | Status backend, cache, dan statistik DB |
+| GET | `/api/news?refresh=false` | Fetch berita dari RSS + simpan ke DB |
+| GET | `/api/news/saved` | Ambil berita dari database (filter + search) |
+| POST | `/api/generate` | Generate konten + simpan ke DB |
+| GET | `/api/history` | Riwayat konten yang di-generate |
+| GET | `/api/history/{id}` | Detail satu item riwayat |
+| DELETE | `/api/history/{id}` | Hapus item riwayat |
+| GET | `/api/backend` | Status semua backend |
+| POST | `/api/backend/ollama` | Switch ke backend Ollama |
+| POST | `/api/backend/airllm` | Switch ke backend AirLLM |
+| POST | `/api/backend/airllm/preload` | Preload model AirLLM |
 
-### Contoh Request Generate
+---
 
-```json
-POST /api/generate
-{
-  "news_title": "OpenAI rilis GPT-5 dengan kemampuan reasoning baru",
-  "news_summary": "OpenAI mengumumkan GPT-5 yang diklaim 10x lebih cerdas...",
-  "platform": "tiktok",
-  "output_types": ["ideas", "hook", "script", "caption"]
-}
-```
+## Database
+
+Data disimpan otomatis di `data/content_agent.db` (SQLite). Dua tabel utama:
+
+**`news_articles`** — hasil scraping RSS:
+- source, title, summary, url (unique), published, fetched_at
+
+**`generated_contents`** — hasil generate konten:
+- news_title, news_summary, news_url, platform, output_types, result, created_at
 
 ---
 
@@ -124,18 +170,19 @@ POST /api/generate
 **Ollama Offline (merah di header)**
 - Pastikan Ollama sudah diinstall dan jalankan `ollama serve`
 
-**Model tidak ditemukan**
-- Jalankan `ollama pull gemma3`
+**AirLLM: model tidak ter-load**
+- Pastikan sudah install: `pip install airllm transformers torch`
+- Untuk 4bit quantization: `pip install bitsandbytes`
+- Cek log terminal untuk error detail
 
 **Berita tidak muncul**
-- Pastikan koneksi internet aktif
-- Klik tombol "Refresh"
+- Pastikan koneksi internet aktif dan klik "Refresh"
 - Beberapa RSS feed mungkin diblokir oleh jaringan tertentu
 
-**Generate lambat**
-- Normal untuk model lokal, butuh 20-60 detik tergantung spesifikasi PC
-- CPU: mungkin butuh hingga 2-3 menit
-- GPU (NVIDIA/AMD): jauh lebih cepat
+**Generate lambat (AirLLM)**
+- Normal — AirLLM load layer per layer dari disk
+- Model 70B bisa butuh 2-5 menit per generate
+- Gunakan compression `4bit` untuk 3x lebih cepat
 
 ---
 
