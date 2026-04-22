@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="id" x-data="app()" x-init="init()">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Content Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .gradient-bg { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); }
+    .card-glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .card-glass:hover { border-color: rgba(139,92,246,0.4); }
+    .tab-active { background: #7c3aed; color: white; }
+    .platform-btn.active { background: #7c3aed; border-color: #7c3aed; color: white; }
+    .output-btn.active { background: rgba(139,92,246,0.3); border-color: #7c3aed; color: #c4b5fd; }
+    .prose-dark { color: #e2e8f0; line-height: 1.8; }
+    .prose-dark h2 { color: #c4b5fd; font-size: 1.1rem; font-weight: 700; margin: 1.2rem 0 0.5rem; }
+    .prose-dark h3 { color: #a78bfa; font-size: 1rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+    .prose-dark ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+    .prose-dark li { margin: 0.2rem 0; }
+    .prose-dark strong { color: #f0abfc; }
+    .prose-dark code { background: rgba(139,92,246,0.2); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .news-card:hover .news-select-btn { opacity: 1; }
+    .news-select-btn { transition: opacity 0.2s; }
+    .typing-cursor::after { content: '▋'; animation: blink 0.7s infinite; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+    ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.4); border-radius: 3px; }
+    .modal-overlay { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+    .platform-badge-tiktok { background: rgba(255,0,80,0.15); color: #ff5080; border: 1px solid rgba(255,0,80,0.3); }
+    .platform-badge-instagram { background: rgba(225,48,108,0.15); color: #e1306c; border: 1px solid rgba(225,48,108,0.3); }
+    .platform-badge-youtube { background: rgba(255,0,0,0.15); color: #ff4444; border: 1px solid rgba(255,0,0,0.3); }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen text-white font-sans">
+
+<!-- HEADER -->
+<header class="border-b border-white/10 px-6 py-4 sticky top-0 z-40" style="background: rgba(15,12,41,0.85); backdrop-filter: blur(12px);">
+  <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-xl">🤖</div>
+      <div>
+        <h1 class="font-bold text-lg leading-tight">AI Content Agent</h1>
+        <p class="text-xs text-white/40">Ollama + Gemma3</p>
+      </div>
+    </div>
+
+    <!-- DB Stats -->
+    <div class="hidden md:flex items-center gap-4 text-xs text-white/40">
+      <div class="flex items-center gap-1.5">
+        <span>📰</span>
+        <span><span class="text-white/70 font-medium" x-text="dbStats.news_total || 0"></span> berita tersimpan</span>
+      </div>
+      <div class="w-px h-3 bg-white/10"></div>
+      <div class="flex items-center gap-1.5">
+        <span>✨</span>
+        <span><span class="text-white/70 font-medium" x-text="dbStats.gen_total || 0"></span> konten di-generate</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Backend Status Badge -->
+      <button @click="showBackendPanel=!showBackendPanel; loadBackendStatus()" class="hidden sm:flex items-center gap-1.5 text-xs hover:bg-white/5 px-2 py-1 rounded-lg transition-colors">
+        <div :class="backendStatus?.active === 'airllm' ? (backendStatus?.airllm?.model_loaded ? 'bg-blue-400' : 'bg-yellow-400') : (ollamaStatus.connected ? 'bg-green-400' : 'bg-red-400')" class="w-2 h-2 rounded-full"></div>
+        <span class="text-white/60">
+          <span x-text="backendStatus?.active === 'airllm' ? 'AirLLM' : 'Ollama'"></span>
+          <span class="text-white/30 ml-1">⚙</span>
+        </span>
+      </button>
+      <!-- Tab Nav -->
+      <div class="flex gap-0.5 bg-white/5 rounded-lg p-1">
+        <button @click="activeTab='news'" :class="activeTab==='news' ? 'tab-active' : 'text-white/50 hover:text-white'" class="px-3 py-1.5 rounded-md text-sm font-medium transition-all">📰 Berita</button>
+        <button @click="activeTab='generate'" :class="activeTab==='generate' ? 'tab-active' : 'text-white/50 hover:text-white'" class="px-3 py-1.5 rounded-md text-sm font-medium transition-all">✨ Generate</button>
+        <button @click="activeTab='history'; loadHistory()" :class="activeTab==='history' ? 'tab-active' : 'text-white/50 hover:text-white'" class="px-3 py-1.5 rounded-md text-sm font-medium transition-all">
+          🗂 Riwayat
+          <span x-show="dbStats.gen_total > 0" class="ml-1 text-xs bg-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full" x-text="dbStats.gen_total"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- BACKEND PANEL (dropdown dari header) -->
+<div x-show="showBackendPanel" x-cloak @click.outside="showBackendPanel=false"
+     class="fixed top-16 right-6 z-50 w-[480px] max-w-[95vw]">
+  <div class="card-glass rounded-2xl shadow-2xl border-violet-500/20 overflow-hidden">
+    <!-- Header Panel -->
+    <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+      <div>
+        <h3 class="font-semibold text-base">⚙ Konfigurasi Backend AI</h3>
+        <p class="text-xs text-white/40 mt-0.5">Pilih model yang digunakan untuk generate konten</p>
+      </div>
+      <button @click="showBackendPanel=false" class="text-white/30 hover:text-white text-xl leading-none">×</button>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="flex gap-0 border-b border-white/10">
+      <button @click="selectedBackendType='ollama'"
+        :class="selectedBackendType==='ollama' ? 'border-b-2 border-violet-500 text-white bg-violet-500/10' : 'text-white/40 hover:text-white'"
+        class="flex-1 py-3 text-sm font-medium transition-all text-center">
+        🦙 Ollama
+        <span x-show="backendStatus?.active==='ollama'" class="ml-1 text-xs text-green-400">● aktif</span>
+      </button>
+      <button @click="selectedBackendType='airllm'"
+        :class="selectedBackendType==='airllm' ? 'border-b-2 border-blue-500 text-white bg-blue-500/10' : 'text-white/40 hover:text-white'"
+        class="flex-1 py-3 text-sm font-medium transition-all text-center">
+        🚀 AirLLM (70B)
+        <span x-show="backendStatus?.active==='airllm'" class="ml-1 text-xs text-blue-400">● aktif</span>
+      </button>
+    </div>
+
+    <div class="p-5">
+      <!-- OLLAMA CONFIG -->
+      <div x-show="selectedBackendType==='ollama'" class="flex flex-col gap-4">
+        <div class="bg-green-900/20 border border-green-500/20 rounded-xl p-3 text-xs text-green-300">
+          <strong>Ollama</strong> — cepat, model lokal via Ollama. Cocok untuk pemakaian sehari-hari.
+          <br>Butuh: <code class="bg-black/30 px-1 rounded">ollama serve</code> berjalan di background.
+        </div>
+        <div>
+          <label class="text-xs text-white/50 mb-1 block">Model Ollama</label>
+          <input x-model="ollamaModelInput" type="text" placeholder="gemma3"
+            class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-violet-500" />
+          <p class="text-xs text-white/30 mt-1">Model yang tersedia: <span x-text="backendStatus?.ollama?.models?.join(', ') || 'belum dideteksi'"></span></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="switchToOllama()" :disabled="switchingBackend"
+            class="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-xl text-sm font-medium transition-colors">
+            <span x-show="!switchingBackend">Pakai Ollama</span>
+            <span x-show="switchingBackend">Switching...</span>
+          </button>
+          <div :class="backendStatus?.ollama?.connected ? 'text-green-400' : 'text-red-400'" class="text-xs">
+            <span x-text="backendStatus?.ollama?.connected ? '● Online' : '● Offline'"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AIRLLM CONFIG -->
+      <div x-show="selectedBackendType==='airllm'" class="flex flex-col gap-4">
+        <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-300 leading-relaxed">
+          <strong>AirLLM</strong> — jalankan model 70B di GPU 4GB! Layer-by-layer loading dari disk.
+          <br>⚡ <strong>Pro:</strong> kualitas lebih tinggi, model besar, tidak butuh Ollama.
+          <br>⏳ <strong>Con:</strong> lebih lambat (1-5 menit per generate), butuh banyak disk space.
+          <br>📦 Install: <code class="bg-black/30 px-1 rounded">pip install airllm transformers torch</code>
+        </div>
+
+        <div x-show="!backendStatus?.airllm?.airllm_installed" class="bg-yellow-900/20 border border-yellow-500/20 rounded-xl p-3 text-xs text-yellow-300">
+          ⚠ AirLLM belum terinstall. Jalankan:
+          <code class="block mt-1 bg-black/40 px-2 py-1 rounded">pip install airllm transformers torch bitsandbytes</code>
+        </div>
+
+        <!-- GPU Info -->
+        <div x-show="backendStatus?.airllm?.cuda_available" class="flex items-center gap-2 text-xs text-white/50">
+          <span class="text-green-400">🎮</span>
+          <span x-text="backendStatus?.airllm?.gpu_name"></span>
+          <span class="text-white/30">|</span>
+          <span x-text="backendStatus?.airllm?.vram_gb + ' GB VRAM'"></span>
+        </div>
+        <div x-show="backendStatus?.airllm && !backendStatus?.airllm?.cuda_available" class="text-xs text-yellow-400">
+          ⚠ CUDA tidak terdeteksi — akan pakai CPU (sangat lambat)
+        </div>
+
+        <div>
+          <label class="text-xs text-white/50 mb-1 block">Pilih Model</label>
+          <select x-model="airllmPreset" class="w-full bg-white/5 border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+            <template x-for="(info, key) in airllmPresets" :key="key">
+              <option :value="key" x-text="key + ' — ' + info.description"></option>
+            </template>
+          </select>
+          <p class="text-xs text-white/30 mt-1" x-show="airllmPresets[airllmPreset]">
+            📦 <span x-text="airllmPresets[airllmPreset]?.description"></span>
+          </p>
+        </div>
+
+        <div>
+          <label class="text-xs text-white/50 mb-1 block">Compression (hemat VRAM & 3x lebih cepat)</label>
+          <div class="flex gap-2">
+            <template x-for="c in ['4bit','8bit','none']" :key="c">
+              <button @click="airllmCompression = c === 'none' ? '' : c"
+                :class="(airllmCompression || 'none') === c ? 'bg-blue-600 text-white' : 'bg-white/5 border border-white/10 text-white/60 hover:text-white'"
+                class="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+                x-text="c === 'none' ? 'No Compression' : c"></button>
+            </template>
+          </div>
+          <p class="text-xs text-white/30 mt-1">4bit direkomendasikan untuk GPU 4GB. Akurasi hampir sama.</p>
+        </div>
+
+        <div>
+          <label class="text-xs text-white/50 mb-1 block">HuggingFace Token <span class="text-white/20">(opsional, untuk model gated)</span></label>
+          <input x-model="airllmToken" type="password" placeholder="hf_xxxxx (kosongkan jika tidak perlu)"
+            class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500" />
+          <p class="text-xs text-white/30 mt-1">Diperlukan untuk model seperti Llama3 (meta-llama). Buat di huggingface.co/settings/tokens</p>
+        </div>
+
+        <div class="flex gap-2">
+          <button @click="switchToAirLLM()" :disabled="switchingBackend || !backendStatus?.airllm?.airllm_installed"
+            class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl text-sm font-medium transition-colors">
+            <span x-show="!switchingBackend">Aktifkan AirLLM</span>
+            <span x-show="switchingBackend">Processing...</span>
+          </button>
+          <button @click="preloadAirLLM()" :disabled="switchingBackend || backendStatus?.active !== 'airllm'"
+            title="Load model sekarang (warm-up)"
+            class="py-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 rounded-xl text-sm transition-colors">
+            ⏳ Preload
+          </button>
+        </div>
+
+        <!-- Model loaded status -->
+        <div x-show="backendStatus?.active === 'airllm'" class="text-xs">
+          <span x-show="backendStatus?.airllm?.model_loaded" class="text-green-400">✓ Model sudah di-load, siap generate</span>
+          <span x-show="backendStatus?.airllm?.loading" class="text-yellow-400">⏳ Model sedang loading...</span>
+          <span x-show="!backendStatus?.airllm?.model_loaded && !backendStatus?.airllm?.loading" class="text-white/40">Model akan di-load saat generate pertama</span>
+        </div>
+      </div>
+
+      <!-- Status message -->
+      <div x-show="backendSwitchMsg" x-text="backendSwitchMsg"
+        :class="backendSwitchMsg.startsWith('✓') ? 'text-green-400' : backendSwitchMsg.startsWith('⏳') ? 'text-yellow-400' : 'text-red-400'"
+        class="text-xs mt-2 p-2 bg-white/5 rounded-lg">
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-7xl mx-auto px-6 py-6">
+
+  <!-- ===== TAB BERITA ===== -->
+  <div x-show="activeTab==='news'" x-cloak>
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold">Berita Teknologi & AI Terkini</h2>
+        <p class="text-sm text-white/40 mt-0.5" x-show="cacheAge !== null">
+          Cache diperbarui <span x-text="cacheAge"></span> menit lalu &bull; otomatis tersimpan ke database
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <select x-model="filterSource" class="bg-white/5 border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-violet-500">
+          <option value="">Semua Sumber</option>
+          <template x-for="src in sources" :key="src">
+            <option :value="src" x-text="src"></option>
+          </template>
+        </select>
+        <button @click="loadNews(true)" :disabled="loadingNews" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          <svg :class="loadingNews ? 'spinner' : ''" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div x-show="loadingNews" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <template x-for="i in 9">
+        <div class="card-glass rounded-xl p-5 animate-pulse">
+          <div class="h-3 bg-white/10 rounded w-1/4 mb-3"></div>
+          <div class="h-4 bg-white/10 rounded w-full mb-2"></div>
+          <div class="h-4 bg-white/10 rounded w-3/4 mb-4"></div>
+          <div class="h-3 bg-white/10 rounded w-full mb-1"></div>
+          <div class="h-3 bg-white/10 rounded w-5/6"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- News Grid -->
+    <div x-show="!loadingNews" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <template x-for="(article, idx) in filteredNews" :key="idx">
+        <div class="news-card card-glass rounded-xl p-5 flex flex-col gap-3 transition-all cursor-pointer group"
+             :class="selectedNews === article ? 'border-violet-500 bg-violet-900/20' : ''"
+             @click="selectNews(article)">
+          <div class="flex items-center justify-between">
+            <span class="text-xs bg-violet-900/50 text-violet-300 px-2 py-0.5 rounded-full" x-text="article.source"></span>
+            <span class="text-xs text-white/30" x-text="article.published"></span>
+          </div>
+          <h3 class="font-semibold text-sm leading-snug text-white group-hover:text-violet-300 transition-colors" x-text="article.title"></h3>
+          <p class="text-xs text-white/50 leading-relaxed flex-1" x-text="article.summary || 'Tidak ada ringkasan tersedia.'"></p>
+          <div class="flex items-center justify-between mt-1">
+            <a :href="article.url" target="_blank" @click.stop class="text-xs text-violet-400 hover:text-violet-300 transition-colors">Baca selengkapnya →</a>
+            <button @click.stop="selectNews(article)"
+              :class="selectedNews === article ? 'bg-violet-600 text-white' : 'bg-white/5 hover:bg-violet-600/50 text-white/60 hover:text-white news-select-btn opacity-0'"
+              class="text-xs px-3 py-1 rounded-lg transition-all font-medium">
+              <span x-text="selectedNews === article ? '✓ Dipilih' : 'Pilih'"></span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <div x-show="!loadingNews && filteredNews.length === 0 && news.length > 0" class="text-center py-16 text-white/30">
+      <div class="text-4xl mb-3">🔍</div>
+      <p>Tidak ada berita dari sumber ini.</p>
+    </div>
+    <div x-show="!loadingNews && news.length === 0" class="text-center py-16 text-white/30">
+      <div class="text-4xl mb-3">📡</div>
+      <p class="mb-2">Gagal memuat berita.</p>
+      <button @click="loadNews(true)" class="text-violet-400 hover:text-violet-300 text-sm underline">Coba lagi</button>
+    </div>
+
+    <!-- Floating selected banner -->
+    <div x-show="selectedNews" x-cloak class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-max max-w-[90vw]">
+      <div class="flex items-center gap-4 bg-violet-700 border border-violet-500 rounded-2xl px-5 py-3 shadow-2xl">
+        <div class="text-sm truncate max-w-xs">
+          <span class="text-violet-200">Dipilih:</span>
+          <span class="font-medium ml-1" x-text="selectedNews?.title"></span>
+        </div>
+        <button @click="activeTab='generate'" class="shrink-0 bg-white text-violet-700 font-bold text-sm px-4 py-1.5 rounded-xl hover:bg-violet-100 transition-colors">
+          Generate →
+        </button>
+        <button @click="selectedNews=null" class="shrink-0 text-violet-300 hover:text-white text-xl leading-none">×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB GENERATE ===== -->
+  <div x-show="activeTab==='generate'" x-cloak class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+    <!-- LEFT -->
+    <div class="lg:col-span-2 flex flex-col gap-4">
+      <div class="card-glass rounded-xl p-5">
+        <h3 class="text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider">Berita Dipilih</h3>
+        <div x-show="selectedNews">
+          <span class="text-xs bg-violet-900/50 text-violet-300 px-2 py-0.5 rounded-full" x-text="selectedNews?.source"></span>
+          <p class="text-sm font-medium leading-snug mt-2 mb-1" x-text="selectedNews?.title"></p>
+          <p class="text-xs text-white/40 leading-relaxed line-clamp-3" x-text="selectedNews?.summary"></p>
+          <button @click="activeTab='news'; selectedNews=null" class="mt-2 text-xs text-violet-400 hover:text-violet-300">← Ganti berita</button>
+        </div>
+        <div x-show="!selectedNews" class="text-center py-5 text-white/30">
+          <div class="text-2xl mb-1">📰</div>
+          <p class="text-sm mb-1">Belum ada berita dipilih</p>
+          <button @click="activeTab='news'" class="text-violet-400 hover:text-violet-300 text-xs underline">Pilih dari tab Berita</button>
+        </div>
+      </div>
+
+      <div class="card-glass rounded-xl p-5">
+        <h3 class="text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider">Atau Input Manual</h3>
+        <div class="flex flex-col gap-2.5">
+          <div>
+            <label class="text-xs text-white/40 mb-1 block">Judul Berita</label>
+            <input x-model="manualTitle" type="text" placeholder="Contoh: OpenAI rilis GPT-5..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-violet-500" />
+          </div>
+          <div>
+            <label class="text-xs text-white/40 mb-1 block">Ringkasan / Detail</label>
+            <textarea x-model="manualSummary" rows="3" placeholder="Tempel ringkasan berita di sini..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-violet-500 resize-none"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-glass rounded-xl p-5">
+        <h3 class="text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider">Platform Target</h3>
+        <div class="flex gap-2">
+          <template x-for="p in platforms" :key="p.id">
+            <button @click="selectedPlatform=p.id"
+              :class="selectedPlatform===p.id ? 'active' : 'bg-white/5 border border-white/10 hover:border-violet-500'"
+              class="platform-btn flex-1 py-2 rounded-lg text-sm font-medium transition-all"
+              x-text="p.label"></button>
+          </template>
+        </div>
+      </div>
+
+      <div class="card-glass rounded-xl p-5">
+        <h3 class="text-xs font-semibold text-white/50 mb-3 uppercase tracking-wider">Output</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <template x-for="opt in outputOptions" :key="opt.id">
+            <button @click="toggleOutput(opt.id)"
+              :class="selectedOutputs.includes(opt.id) ? 'active' : 'bg-white/5 border border-white/10 hover:border-violet-500/50'"
+              class="output-btn border rounded-lg px-3 py-2 text-xs font-medium text-left transition-all">
+              <span x-text="opt.icon + ' ' + opt.label"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- Backend indicator kecil -->
+      <div class="flex items-center justify-between text-xs text-white/30 px-1">
+        <span>Backend aktif:</span>
+        <button @click="showBackendPanel=true; loadBackendStatus()" class="flex items-center gap-1 hover:text-white/60 transition-colors">
+          <span x-show="backendStatus?.active === 'airllm'" class="text-blue-400">🚀 AirLLM — <span x-text="backendStatus?.airllm?.preset || ''"></span></span>
+          <span x-show="backendStatus?.active !== 'airllm'" class="text-green-400">🦙 Ollama — <span x-text="backendStatus?.ollama?.active_model || 'gemma3'"></span></span>
+          <span class="text-white/20">⚙ ganti</span>
+        </button>
+      </div>
+
+      <button @click="generateContent()" :disabled="!canGenerate || generating"
+        class="w-full py-3.5 rounded-xl font-bold text-base transition-all"
+        :class="canGenerate && !generating ? (backendStatus?.active === 'airllm' ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/50' : 'bg-violet-600 hover:bg-violet-700 shadow-lg shadow-violet-900/50') : 'bg-white/10 text-white/30 cursor-not-allowed'">
+        <span x-show="!generating" class="flex items-center justify-center gap-2">
+          <span x-text="backendStatus?.active === 'airllm' ? '🚀' : '✨'"></span>
+          Generate Konten
+        </span>
+        <span x-show="generating" class="flex items-center justify-center gap-2">
+          <svg class="spinner w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="30 70"/></svg>
+          <span x-text="backendStatus?.active === 'airllm' ? 'AirLLM sedang memproses (bisa 1-5 menit)...' : 'Gemma3 sedang berpikir...'"></span>
+        </span>
+      </button>
+      <p x-show="backendStatus?.active === 'airllm'" class="text-xs text-blue-400/60 text-center -mt-2">
+        ⏳ AirLLM lebih lambat tapi kualitas lebih baik untuk model besar
+      </p>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="lg:col-span-3">
+      <div class="card-glass rounded-xl p-6 min-h-[500px] flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-lg">Hasil Generate</h3>
+          <div class="flex gap-2" x-show="result">
+            <button @click="copyResult()" class="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors">
+              <span x-text="copied ? '✓ Disalin!' : '📋 Salin'"></span>
+            </button>
+            <button @click="generateContent()" :disabled="generating" class="text-xs bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+              🔄 Regenerate
+            </button>
+          </div>
+        </div>
+
+        <div x-show="!result && !generating" class="flex-1 flex flex-col items-center justify-center text-white/20 gap-3">
+          <div class="text-6xl">✨</div>
+          <p>Hasil konten akan muncul di sini</p>
+          <p class="text-sm">Otomatis tersimpan ke database setelah selesai</p>
+        </div>
+        <div x-show="generating && !result" class="flex-1 flex flex-col items-center justify-center text-white/40 gap-3">
+          <div class="w-12 h-12 border-2 border-violet-500/30 border-t-violet-500 rounded-full spinner"></div>
+          <p>Gemma3 sedang membuat konten...</p>
+          <p class="text-sm text-white/20">20-40 detik tergantung spesifikasi PC</p>
+        </div>
+        <div x-show="result" class="flex-1 overflow-y-auto">
+          <div class="prose-dark" :class="generating ? 'typing-cursor' : ''" x-html="renderedResult"></div>
+          <p x-show="!generating && result" class="text-xs text-white/30 mt-4 pt-3 border-t border-white/5">
+            ✓ Tersimpan otomatis ke database
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB RIWAYAT ===== -->
+  <div x-show="activeTab==='history'" x-cloak>
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold">Riwayat Generate Konten</h2>
+        <p class="text-sm text-white/40 mt-0.5">Semua konten yang pernah di-generate, tersimpan di database lokal</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <input x-model="historySearch" @input.debounce.400ms="loadHistory()"
+          type="text" placeholder="Cari judul atau konten..."
+          class="bg-white/5 border border-white/10 text-white text-sm rounded-lg px-3 py-2 w-52 focus:outline-none focus:border-violet-500 placeholder-white/20" />
+        <select x-model="historyPlatform" @change="loadHistory()" class="bg-white/5 border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-violet-500">
+          <option value="">Semua Platform</option>
+          <option value="tiktok">TikTok</option>
+          <option value="instagram">Instagram</option>
+          <option value="youtube">YouTube</option>
+        </select>
+        <button @click="loadHistory()" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          <svg :class="loadingHistory ? 'spinner' : ''" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="card-glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-violet-300" x-text="dbStats.gen_total || 0"></div>
+        <div class="text-xs text-white/40 mt-1">Total Generate</div>
+      </div>
+      <div class="card-glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-green-300" x-text="dbStats.gen_today || 0"></div>
+        <div class="text-xs text-white/40 mt-1">Hari Ini</div>
+      </div>
+      <div class="card-glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-blue-300" x-text="dbStats.news_total || 0"></div>
+        <div class="text-xs text-white/40 mt-1">Berita Tersimpan</div>
+      </div>
+      <div class="card-glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-pink-300" x-text="dbStats.news_today || 0"></div>
+        <div class="text-xs text-white/40 mt-1">Berita Hari Ini</div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="loadingHistory" class="flex flex-col gap-3">
+      <template x-for="i in 5">
+        <div class="card-glass rounded-xl p-4 animate-pulse flex gap-4">
+          <div class="flex-1">
+            <div class="h-3 bg-white/10 rounded w-1/5 mb-2"></div>
+            <div class="h-4 bg-white/10 rounded w-3/4 mb-2"></div>
+            <div class="h-3 bg-white/10 rounded w-1/2"></div>
+          </div>
+          <div class="w-20 h-8 bg-white/10 rounded-lg"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- History List -->
+    <div x-show="!loadingHistory" class="flex flex-col gap-3">
+      <template x-for="item in history" :key="item.id">
+        <div class="card-glass rounded-xl p-4 flex gap-4 items-start group">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span :class="'platform-badge-' + item.platform" class="text-xs px-2 py-0.5 rounded-full font-medium" x-text="platformLabel(item.platform)"></span>
+              <template x-for="ot in item.output_types" :key="ot">
+                <span class="text-xs bg-white/5 text-white/40 px-2 py-0.5 rounded-full" x-text="outputLabel(ot)"></span>
+              </template>
+              <span class="text-xs text-white/30 ml-auto" x-text="item.created_at"></span>
+            </div>
+            <h4 class="font-medium text-sm text-white leading-snug mb-1 truncate" x-text="item.news_title"></h4>
+            <p class="text-xs text-white/40 leading-relaxed line-clamp-2" x-text="item.news_summary || 'Tidak ada ringkasan'"></p>
+            <a x-show="item.news_url" :href="item.news_url" target="_blank" class="text-xs text-violet-400 hover:text-violet-300 mt-1 inline-block">Sumber berita →</a>
+          </div>
+          <div class="flex flex-col gap-2 shrink-0">
+            <button @click="openHistoryModal(item)" class="text-xs bg-violet-600/20 hover:bg-violet-600/50 border border-violet-500/30 text-violet-300 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+              👁 Lihat
+            </button>
+            <button @click="copyHistoryItem(item)" class="text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+              <span x-text="copiedHistoryId === item.id ? '✓ Disalin' : '📋 Salin'"></span>
+            </button>
+            <button @click="reuseHistoryItem(item)" class="text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+              🔄 Pakai Lagi
+            </button>
+            <button @click="deleteHistoryItem(item.id)" class="text-xs bg-red-900/20 hover:bg-red-900/40 border border-red-500/20 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 whitespace-nowrap">
+              🗑 Hapus
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Empty -->
+    <div x-show="!loadingHistory && history.length === 0" class="text-center py-20 text-white/30">
+      <div class="text-5xl mb-4">🗂</div>
+      <p class="text-lg mb-1">Belum ada riwayat</p>
+      <p class="text-sm">Generate konten pertamamu dari tab ✨ Generate</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== MODAL RIWAYAT ===== -->
+<div x-show="historyModal" x-cloak @click.self="historyModal=null" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="card-glass rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl border-violet-500/30">
+    <div class="flex items-start justify-between p-5 border-b border-white/10">
+      <div class="flex-1 min-w-0 pr-4">
+        <div class="flex items-center gap-2 mb-1">
+          <span x-show="historyModal" :class="'platform-badge-' + historyModal?.platform" class="text-xs px-2 py-0.5 rounded-full font-medium" x-text="platformLabel(historyModal?.platform)"></span>
+          <span class="text-xs text-white/30" x-text="historyModal?.created_at"></span>
+        </div>
+        <h3 class="font-semibold text-base leading-snug" x-text="historyModal?.news_title"></h3>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        <button @click="copyHistoryItem(historyModal)" class="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors">
+          <span x-text="copiedHistoryId === historyModal?.id ? '✓ Disalin!' : '📋 Salin'"></span>
+        </button>
+        <button @click="historyModal=null" class="text-white/40 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-xl leading-none">×</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div x-show="historyModal" class="prose-dark" x-html="historyModal ? marked.parse(historyModal.result) : ''"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function app() {
+  return {
+    activeTab: 'news',
+
+    // Berita
+    news: [],
+    loadingNews: false,
+    filterSource: '',
+    sources: [],
+    cacheAge: null,
+    selectedNews: null,
+
+    // Generate
+    manualTitle: '',
+    manualSummary: '',
+    selectedPlatform: 'tiktok',
+    selectedOutputs: ['ideas', 'hook', 'script', 'caption'],
+    generating: false,
+    result: '',
+    copied: false,
+
+    // History
+    history: [],
+    loadingHistory: false,
+    historySearch: '',
+    historyPlatform: '',
+    historyModal: null,
+    copiedHistoryId: null,
+
+    // Status & Stats
+    ollamaStatus: { connected: false },
+    dbStats: { news_total: 0, news_today: 0, gen_total: 0, gen_today: 0 },
+
+    // Backend
+    backendStatus: null,
+    showBackendPanel: false,
+    selectedBackendType: 'ollama',
+    ollamaModelInput: 'gemma3',
+    airllmPreset: 'llama3-8b',
+    airllmCompression: '4bit',
+    airllmToken: '',
+    airllmPresets: {},
+    switchingBackend: false,
+    backendSwitchMsg: '',
+
+    platforms: [
+      { id: 'tiktok', label: '🎵 TikTok' },
+      { id: 'instagram', label: '📸 IG' },
+      { id: 'youtube', label: '▶️ YouTube' },
+    ],
+
+    outputOptions: [
+      { id: 'ideas', icon: '💡', label: 'Ide Konten' },
+      { id: 'hook', icon: '🎣', label: 'Hook' },
+      { id: 'script', icon: '📝', label: 'Script' },
+      { id: 'caption', icon: '📱', label: 'Caption' },
+    ],
+
+    get filteredNews() {
+      if (!this.filterSource) return this.news;
+      return this.news.filter(a => a.source === this.filterSource);
+    },
+
+    get activeTitle() {
+      return this.manualTitle || this.selectedNews?.title || '';
+    },
+
+    get activeSummary() {
+      return this.manualSummary || this.selectedNews?.summary || '';
+    },
+
+    get canGenerate() {
+      return (this.activeTitle || this.activeSummary) && this.selectedOutputs.length > 0;
+    },
+
+    get renderedResult() {
+      if (!this.result) return '';
+      return marked.parse(this.result);
+    },
+
+    platformLabel(p) {
+      const map = { tiktok: '🎵 TikTok', instagram: '📸 Instagram', youtube: '▶️ YouTube' };
+      return map[p] || p || '';
+    },
+
+    outputLabel(id) {
+      const map = { ideas: '💡 Ide', hook: '🎣 Hook', script: '📝 Script', caption: '📱 Caption' };
+      return map[id] || id;
+    },
+
+    async init() {
+      await this.checkStatus();
+      this.loadNews(false);
+    },
+
+    async checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        this.ollamaStatus = data.ollama || { connected: false };
+        this.cacheAge = data.cache_age_minutes;
+        if (data.db) {
+          this.dbStats = {
+            news_total: data.db.news?.total || 0,
+            news_today: data.db.news?.last_24h || 0,
+            gen_total: data.db.generated?.total || 0,
+            gen_today: data.db.generated?.last_24h || 0,
+          };
+        }
+        if (data.backend) {
+          this.backendStatus = data.backend;
+          this.selectedBackendType = data.backend.active || 'ollama';
+          this.airllmPresets = data.backend.presets || {};
+        }
+      } catch (e) {
+        this.ollamaStatus = { connected: false };
+      }
+    },
+
+    async loadBackendStatus() {
+      try {
+        const res = await fetch('/api/backend');
+        const data = await res.json();
+        this.backendStatus = data;
+        this.selectedBackendType = data.active || 'ollama';
+        this.airllmPresets = data.presets || {};
+      } catch (e) {}
+    },
+
+    async switchToOllama() {
+      this.switchingBackend = true;
+      this.backendSwitchMsg = '';
+      try {
+        const res = await fetch('/api/backend/ollama', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: this.ollamaModelInput }),
+        });
+        const data = await res.json();
+        this.backendSwitchMsg = data.success ? `✓ Switched ke Ollama (${data.model})` : '✗ Gagal switch';
+        await this.checkStatus();
+      } catch (e) {
+        this.backendSwitchMsg = '✗ Error: ' + e.message;
+      } finally {
+        this.switchingBackend = false;
+      }
+    },
+
+    async switchToAirLLM() {
+      this.switchingBackend = true;
+      this.backendSwitchMsg = '';
+      try {
+        const res = await fetch('/api/backend/airllm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preset: this.airllmPreset,
+            compression: this.airllmCompression,
+            hf_token: this.airllmToken,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          this.backendSwitchMsg = `✓ AirLLM aktif: ${data.model}. Model akan di-load saat generate pertama.`;
+        } else {
+          this.backendSwitchMsg = '✗ Gagal switch ke AirLLM';
+        }
+        await this.checkStatus();
+      } catch (e) {
+        this.backendSwitchMsg = '✗ Error: ' + e.message;
+      } finally {
+        this.switchingBackend = false;
+      }
+    },
+
+    async preloadAirLLM() {
+      this.switchingBackend = true;
+      this.backendSwitchMsg = 'Memuat model... ini bisa butuh beberapa menit';
+      try {
+        const res = await fetch('/api/backend/airllm/preload', { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.model_loaded) {
+          this.backendSwitchMsg = '✓ Model berhasil dimuat dan siap digunakan!';
+        } else {
+          this.backendSwitchMsg = `✗ Gagal: ${data.error || 'Unknown error'}`;
+        }
+        await this.checkStatus();
+      } catch (e) {
+        this.backendSwitchMsg = '✗ Error: ' + e.message;
+      } finally {
+        this.switchingBackend = false;
+      }
+    },
+
+    async loadNews(forceRefresh = false) {
+      this.loadingNews = true;
+      try {
+        const res = await fetch(`/api/news?refresh=${forceRefresh}`);
+        const data = await res.json();
+        this.news = data.articles || [];
+        this.cacheAge = data.cache_age_minutes;
+        this.sources = [...new Set(this.news.map(a => a.source))];
+        // Refresh stats setelah fetch
+        await this.checkStatus();
+      } catch (e) {
+        console.error('Failed to load news:', e);
+      } finally {
+        this.loadingNews = false;
+      }
+    },
+
+    selectNews(article) {
+      this.selectedNews = article;
+    },
+
+    toggleOutput(id) {
+      const idx = this.selectedOutputs.indexOf(id);
+      if (idx === -1) {
+        this.selectedOutputs.push(id);
+      } else if (this.selectedOutputs.length > 1) {
+        this.selectedOutputs.splice(idx, 1);
+      }
+    },
+
+    async generateContent() {
+      if (!this.canGenerate || this.generating) return;
+      this.generating = true;
+      this.result = '';
+
+      const payload = {
+        news_title: this.activeTitle,
+        news_summary: this.activeSummary,
+        news_url: this.selectedNews?.url || '',
+        platform: this.selectedPlatform,
+        output_types: this.selectedOutputs,
+      };
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          this.result = `**Error:** Server mengembalikan status ${res.status}`;
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          this.result += decoder.decode(value, { stream: true });
+        }
+
+        // Refresh stats setelah generate selesai
+        await this.checkStatus();
+      } catch (e) {
+        this.result = `**Error:** Gagal terhubung ke server.\n\nPastikan backend berjalan di http://localhost:8000\n\n\`\`\`\n${e.message}\n\`\`\``;
+      } finally {
+        this.generating = false;
+      }
+    },
+
+    async copyResult() {
+      try {
+        await navigator.clipboard.writeText(this.result);
+        this.copied = true;
+        setTimeout(() => this.copied = false, 2000);
+      } catch (e) {}
+    },
+
+    async loadHistory() {
+      this.loadingHistory = true;
+      try {
+        const params = new URLSearchParams({ limit: 100 });
+        if (this.historyPlatform) params.set('platform', this.historyPlatform);
+        if (this.historySearch) params.set('search', this.historySearch);
+        const res = await fetch(`/api/history?${params}`);
+        const data = await res.json();
+        this.history = data.items || [];
+      } catch (e) {
+        console.error('Failed to load history:', e);
+      } finally {
+        this.loadingHistory = false;
+      }
+    },
+
+    openHistoryModal(item) {
+      this.historyModal = item;
+    },
+
+    async copyHistoryItem(item) {
+      if (!item) return;
+      try {
+        await navigator.clipboard.writeText(item.result);
+        this.copiedHistoryId = item.id;
+        setTimeout(() => this.copiedHistoryId = null, 2000);
+      } catch (e) {}
+    },
+
+    reuseHistoryItem(item) {
+      this.manualTitle = item.news_title;
+      this.manualSummary = item.news_summary || '';
+      this.selectedPlatform = item.platform;
+      if (item.output_types?.length) this.selectedOutputs = [...item.output_types];
+      this.selectedNews = null;
+      this.result = '';
+      this.activeTab = 'generate';
+    },
+
+    async deleteHistoryItem(id) {
+      if (!confirm('Hapus item ini dari riwayat?')) return;
+      try {
+        await fetch(`/api/history/${id}`, { method: 'DELETE' });
+        this.history = this.history.filter(h => h.id !== id);
+        if (this.historyModal?.id === id) this.historyModal = null;
+        await this.checkStatus();
+      } catch (e) {
+        console.error('Delete failed:', e);
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

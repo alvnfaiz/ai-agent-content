@@ -1,0 +1,16 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+feedparser==6.0.11
+ollama==0.4.4
+python-dotenv==1.0.1
+httpx==0.27.2
+aiofiles==24.1.0
+aiosqlite==0.20.0
+
+# AirLLM backend (opsional — untuk jalankan 70B model di GPU 4GB)
+# Install jika ingin pakai AirLLM:
+#   pip install airllm transformers torch
+# Untuk quantization (3x lebih cepat):
+#   pip install bitsandbytes
+airllm
+transformers
