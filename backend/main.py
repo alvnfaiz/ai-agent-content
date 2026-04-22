@@ -9,8 +9,8 @@ import concurrent.futures
 import os
 from typing import Optional
 
-from news_fetcher import get_news_and_save, get_cache_age_minutes
-from agent import generate_content_stream, get_full_status, BackendManager, AIRLLM_PRESETS
+from news_fetcher import get_news_and_save, get_cache_age_minutes, get_all_source_names
+from agent import generate_content_stream, generate_assist, get_full_status, BackendManager, AIRLLM_PRESETS
 import database as db
 
 
@@ -152,12 +152,22 @@ async def preload_airllm_model():
 # ─────────────────────────────────────────────
 
 @app.get("/api/news")
-async def fetch_news(refresh: bool = Query(default=False)):
-    articles = await get_news_and_save(force_refresh=refresh)
+async def fetch_news(
+    refresh: bool = Query(default=False),
+    source: Optional[str] = Query(default=None),
+):
+    """
+    Ambil berita dari RSS feeds.
+    - source kosong → semua sumber, 6 per sumber
+    - source diisi  → satu sumber, 30 artikel terbaru
+    """
+    articles = await get_news_and_save(source=source, force_refresh=refresh)
     return {
         "articles": articles,
         "total": len(articles),
-        "cache_age_minutes": get_cache_age_minutes(),
+        "cache_age_minutes": get_cache_age_minutes(source=source),
+        "source": source,
+        "all_sources": get_all_source_names(),
     }
 
 
@@ -180,7 +190,7 @@ class GenerateRequest(BaseModel):
     news_title: str
     news_summary: str
     news_url: str = ""
-    platform: str = "tiktok"
+    platforms: list[str] = ["tiktok"]
     output_types: list[str] = ["ideas", "hook", "script", "caption"]
 
 
@@ -188,9 +198,11 @@ class GenerateRequest(BaseModel):
 async def generate_content(req: GenerateRequest):
     """
     Generate konten dari berita menggunakan backend aktif (Ollama atau AirLLM).
+    Mendukung multiple platform sekaligus.
     Hasil streaming dikirim ke client, lalu disimpan ke DB setelah selesai.
     """
     active_backend = BackendManager.instance().active_backend_type
+    platforms = req.platforms if req.platforms else ["tiktok"]
 
     async def event_stream():
         loop = asyncio.get_event_loop()
@@ -201,7 +213,7 @@ async def generate_content(req: GenerateRequest):
                     generate_content_stream(
                         req.news_title,
                         req.news_summary,
-                        req.platform,
+                        platforms,
                         req.output_types,
                     )
                 ),
@@ -213,12 +225,12 @@ async def generate_content(req: GenerateRequest):
             saved_id = await db.save_generated_content(
                 news_title=req.news_title,
                 news_summary=req.news_summary,
-                platform=req.platform,
+                platform=",".join(platforms),
                 output_types=req.output_types,
                 result=full_result,
                 news_url=req.news_url,
             )
-            print(f"[DB] Content saved: id={saved_id}, backend={active_backend}")
+            print(f"[DB] Content saved: id={saved_id}, platforms={platforms}, backend={active_backend}")
         except Exception as e:
             print(f"[DB] Error saving: {e}")
 
@@ -227,6 +239,30 @@ async def generate_content(req: GenerateRequest):
             await asyncio.sleep(0)
 
     return StreamingResponse(event_stream(), media_type="text/plain; charset=utf-8")
+
+
+# ─────────────────────────────────────────────
+# ASSIST (AI-assisted writing)
+# ─────────────────────────────────────────────
+
+class AssistRequest(BaseModel):
+    news_title: str
+    news_summary: str
+
+
+@app.post("/api/assist")
+async def assist_writing(req: AssistRequest):
+    """
+    Tulis ulang judul dan ringkasan menggunakan AI.
+    Return: {"title": str, "summary": str}
+    """
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        result = await loop.run_in_executor(
+            pool,
+            lambda: generate_assist(req.news_title, req.news_summary),
+        )
+    return result
 
 
 # ─────────────────────────────────────────────
